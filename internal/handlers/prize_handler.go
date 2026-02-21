@@ -1,0 +1,46 @@
+package handlers // 定義套件名稱為 handlers，負責處理 HTTP 請求邏輯
+
+import (
+	service "kuji-go/internal/services" // 引入 service 套件，使用商業邏輯
+	"net/http"                          // 引入標準庫 net/http
+
+	"github.com/gin-gonic/gin" // 引入 Gin Web Framework
+)
+
+// PrizeHandler 結構體負責聚合所有獎品相關的依賴
+type PrizeHandler struct {
+	Service *service.PrizeService // 改為依賴 Service 層，不再直接操作 DB 或 Redis
+}
+
+// NewPrizeHandler 是建構函式，用於初始化 PrizeHandler
+// 透過參數傳入依賴 (Dependency Injection)，方便測試與管理
+func NewPrizeHandler(s *service.PrizeService) *PrizeHandler {
+	return &PrizeHandler{Service: s} // 注入 Service 實例
+}
+
+// GetList 是一個方法 (Method)，綁定在 PrizeHandler 上
+// 參數 c *gin.Context 包含了該次 HTTP 請求的所有資訊 (參數、標頭等)
+func (h *PrizeHandler) GetList(c *gin.Context) {
+	boxID := c.Query("box_id") // 從 URL Query String 獲取參數 (例如: /prizes?box_id=123)
+
+	// 呼叫 Service 層的方法來獲取資料
+	prizes, _ := h.Service.GetPrizes(c, boxID)
+
+	// c.JSON 回傳 JSON 格式的回應
+	// http.StatusOK 代表 HTTP 200
+	// gin.H 是一個 map[string]interface{} 的捷徑，用來建構 JSON 物件
+	c.JSON(http.StatusOK, gin.H{
+		"box_id": boxID,  // 回傳查詢的 box_id
+		"prizes": prizes, // 回傳從 Service 取得的獎品列表
+	})
+}
+
+// Draw 處理抽獎請求
+func (h *PrizeHandler) Draw(c *gin.Context) {
+	// 呼叫 Service 層的抽獎方法
+	msg, _ := h.Service.Draw(c)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": msg, // 回傳 Service 處理後的結果
+	})
+}
