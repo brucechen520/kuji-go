@@ -1,8 +1,8 @@
 package handlers // 定義套件名稱為 handlers，負責處理 HTTP 請求邏輯
 
 import (
-	service "kuji-go/internal/services" // 引入 service 套件，使用商業邏輯
-	"net/http"                          // 引入標準庫 net/http
+	"kuji-go/internal/service" // 引入 service 套件，使用商業邏輯
+	"net/http"                 // 引入標準庫 net/http
 
 	"github.com/gin-gonic/gin" // 引入 Gin Web Framework
 )

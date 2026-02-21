@@ -1,11 +1,11 @@
 package app // 定義 app 套件，負責應用程式的啟動與依賴組裝
 
 import (
-	"kuji-go/internal/handlers"         // 引入 handlers 層
-	"kuji-go/internal/models"           // 引入 models 層
-	"kuji-go/internal/repository"       // 引入 repository 層
-	service "kuji-go/internal/services" // 引入 service 層
-	"log"                               // 引入日誌套件
+	"kuji-go/internal/handlers"   // 引入 handlers 層
+	"kuji-go/internal/models"     // 引入 models 層
+	"kuji-go/internal/repository" // 引入 repository 層
+	"kuji-go/internal/service"    // 引入 service 層
+	"log"                         // 引入日誌套件
 
 	"github.com/joho/godotenv" // 引入環境變數載入工具
 )
