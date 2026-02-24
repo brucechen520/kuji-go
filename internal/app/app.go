@@ -17,7 +17,8 @@ type Container struct {
 }
 
 // NewContainer 負責初始化所有元件並進行組裝
-func NewContainer() *Container {
+// 回傳 Container 以及一個 cleanup 函式，用於優雅關閉資源
+func NewContainer() (*Container, func()) {
 	// 1. 載入環境變數
 	if err := godotenv.Load(); err != nil {
 		log.Println("未發現 .env 檔案，使用系統環境變數") // 若無 .env 檔則忽略，繼續執行
@@ -51,8 +52,25 @@ func NewContainer() *Container {
 	// [Root Handler] 建立總 Handler，聚合所有子 Handler
 	rootHandler := handlers.NewHandler(prizeHandler) // 將 prizeHandler 放入總 Handler
 
+	// 定義資源釋放邏輯
+	cleanup := func() {
+		log.Println("正在關閉應用程式資源...")
+
+		// 關閉 Redis
+		if err := rdb.Close(); err != nil {
+			log.Println("關閉 Redis 失敗:", err)
+		}
+
+		// 關閉 DB (GORM 需要先取得底層 sql.DB 才能關閉)
+		if sqlDB, err := db.DB(); err == nil {
+			if err := sqlDB.Close(); err != nil {
+				log.Println("關閉資料庫失敗:", err)
+			}
+		}
+	}
+
 	// 回傳包含完整依賴的容器
 	return &Container{
 		Handler: rootHandler, // 設定 Handler 欄位
-	}
+	}, cleanup
 }
