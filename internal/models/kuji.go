@@ -13,22 +13,33 @@ type Series struct {
 
 // 抽獎箱
 // 定義 Box 結構體，對應 boxes 表
+// 已抽數可由 (TotalQuantity - RemainQuantity) 計算得出
 type Box struct {
-	gorm.Model             // 內嵌基礎欄位
-	SeriesID       uint    // 外鍵 (Foreign Key)，關聯到 Series 表
-	LocationName   string  `gorm:"index"` // 建立索引，加快查詢速度
-	TotalQuantity  int     // 總數量
-	RemainQuantity int     // 剩餘數量
-	Prizes         []Prize // 定義一對多關聯，一箱有多個獎品
+	gorm.Model
+	SeriesID       uint
+	LocationName   string  `gorm:"index"`
+	TotalQuantity  int     // 總抽數，例如 80
+	RemainQuantity int     // 剩餘抽數
+	Prizes         []Prize // Has Many 關聯
 }
 
 // 獎項
 // 定義 Prize 結構體，對應 prizes 表
 type Prize struct {
-	gorm.Model        // 內嵌基礎欄位
-	BoxID      uint   // 外鍵，關聯到 Box 表
-	Level      string `gorm:"type:varchar(10)"` // 指定資料庫欄位型態為 varchar(10)，例如 "A", "LastOne"
-	Name       string // 獎品名稱
-	Weight     int    // 機率權重 (用於計算抽中機率)
-	RemainStep int    // 該獎項剩餘數量
+	gorm.Model
+	BoxID             uint
+	Level             string `gorm:"type:varchar(10)"` // 例如 "A", "B", "LastOne"
+	Name              string
+	InitialQuantity   int                // 此獎項的初始總數，例如 A賞 1 個, B賞 2 個
+	RemainingQuantity int                // 此獎項的剩餘數量
+	Phases            []ProbabilityPhase // Has Many 關聯，用於動態機率
+}
+
+// ProbabilityPhase 定義了獎品在不同抽數階段的機率權重
+type ProbabilityPhase struct {
+	gorm.Model
+	PrizeID        uint
+	StartDrawCount int `gorm:"not null"` // 當已抽出 N 張時，此階段開始 (包含)
+	EndDrawCount   int `gorm:"not null"` // 當已抽出 N 張時，此階段結束 (不包含)
+	Weight         int `gorm:"not null"` // 在此階段的抽獎權重
 }

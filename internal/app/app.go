@@ -3,6 +3,7 @@ package app // 定義 app 套件，負責應用程式的啟動與依賴組裝
 import (
 	"kuji-go/internal/handlers"   // 引入 handlers 層
 	"kuji-go/internal/models"     // 引入 models 層
+	"kuji-go/internal/pkg"        // 引入 pkg 層
 	"kuji-go/internal/repository" // 引入 repository 層
 	"kuji-go/internal/service"    // 引入 service 層
 	"log"                         // 引入日誌套件
@@ -25,7 +26,7 @@ func NewContainer() (*Container, func()) {
 	}
 
 	// 2. 初始化資料庫連線
-	db, err := repository.NewDB() // 呼叫 repository 層建立 DB 連線
+	db, err := pkg.NewDB() // 呼叫 pkg 層建立 DB 連線
 	if err != nil {
 		log.Fatal("資料庫連線失敗: ", err) // 若連線失敗，直接終止程式
 	}
@@ -33,7 +34,7 @@ func NewContainer() (*Container, func()) {
 	db.AutoMigrate(&models.Series{}, &models.Box{}, &models.Prize{})
 
 	// 3. 初始化 Redis 連線
-	rdb, err := repository.NewRedis() // 呼叫 repository 層建立 Redis 連線
+	rdb, err := pkg.NewRedis() // 呼叫 pkg 層建立 Redis 連線
 	if err != nil {
 		log.Fatal("Redis 連線失敗: ", err) // 若連線失敗，直接終止程式
 	}
@@ -59,17 +60,11 @@ func NewContainer() (*Container, func()) {
 	cleanup := func() {
 		log.Println("正在關閉應用程式資源...")
 
-		// 關閉 Redis
-		if err := rdb.Close(); err != nil {
-			log.Println("關閉 Redis 失敗:", err)
-		}
+		// 關閉 Redis 連線
+		pkg.CloseRedis(rdb)
 
 		// 關閉 DB (GORM 需要先取得底層 sql.DB 才能關閉)
-		if sqlDB, err := db.DB(); err == nil {
-			if err := sqlDB.Close(); err != nil {
-				log.Println("關閉資料庫失敗:", err)
-			}
-		}
+		pkg.CloseDB(db)
 	}
 
 	// 回傳包含完整依賴的容器

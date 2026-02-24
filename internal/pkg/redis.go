@@ -1,9 +1,10 @@
-package repository // 屬於 repository 套件
+package pkg // 屬於 pkg 套件
 
 import (
 	"context" // 引入 context 套件，用於控制請求的生命週期 (如超時、取消)
 	"fmt"     // 用於格式化字串
-	"os"      // 用於讀取環境變數
+	"log"
+	"os" // 用於讀取環境變數
 
 	"github.com/redis/go-redis/v9" // 引入 Redis 客戶端
 )
@@ -27,3 +28,11 @@ func NewRedis() (*redis.Client, error) {
 	}
 	return rdb, nil // 回傳成功的客戶端實例
 }
+
+func CloseRedis(rdb *redis.Client) error {
+	if err := rdb.Close(); err != nil {
+		log.Println("關閉 Redis 失敗:", err)
+	}
+
+	return nil
+} // 關閉 Redis 客戶端，回傳可能的錯誤

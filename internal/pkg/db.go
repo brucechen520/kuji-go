@@ -1,24 +1,13 @@
-package repository // 定義套件名稱為 repository，通常與資料夾名稱一致，負責資料存取層
+package pkg // 定義套件名稱為 pkg，通常與資料夾名稱一致，負責資料存取層
 
 import (
 	"fmt" // 引入 fmt 套件，用於字串格式化 (Format)
-	"os"  // 引入 os 套件，用於操作作業系統功能，例如讀取環境變數
+	"log"
+	"os" // 引入 os 套件，用於操作作業系統功能，例如讀取環境變數
 
 	"gorm.io/driver/postgres" // 引入 GORM 的 PostgreSQL 驅動程式
 	"gorm.io/gorm"            // 引入 GORM ORM 核心套件
 )
-
-// Repository 封裝資料庫操作，避免 Handler 直接依賴 GORM
-// 定義一個結構體 (struct)，用來封裝資料庫連線
-type Repository struct {
-	db *gorm.DB // db 欄位儲存 GORM 的資料庫連線指標 (*gorm.DB)
-}
-
-// NewRepository 是一個建構函式 (Constructor)，用於建立 Repository 實例
-// 透過依賴注入 (Dependency Injection) 的方式傳入 db 連線
-func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{db: db} // 回傳 Repository 結構體的指標，並初始化 db 欄位
-}
 
 // NewDB 負責建立與資料庫的實體連線
 // 回傳值為 (*gorm.DB, error)，這是 Go 的慣用寫法，同時回傳結果與錯誤
@@ -49,10 +38,11 @@ func NewDB() (*gorm.DB, error) {
 	return db, nil // 如果成功，回傳 db 連線物件和 nil 錯誤
 }
 
-// WithTransaction 範例：封裝交易邏輯，確保 Lock 安全
-// 這是一個高階函式，接收一個函式 fn 作為參數
-func (r *Repository) WithTransaction(fn func(tx *gorm.DB) error) error {
-	// 呼叫 GORM 的 Transaction 方法
-	// 它會自動開啟交易，執行 fn，如果 fn 回傳錯誤則 Rollback，否則 Commit
-	return r.db.Transaction(fn)
+func CloseDB(db *gorm.DB) error {
+	// GORM 需要先取得底層 sql.DB 才能關閉連線
+	sqlDB, err := db.DB() // 取得底層的 sql.DB 物件
+	if err != nil {
+		log.Fatal("無法取得底層資料庫連線: %w", err)
+	}
+	return sqlDB.Close() // 關閉資料庫連線，回傳可能的錯誤
 }
