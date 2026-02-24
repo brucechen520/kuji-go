@@ -64,7 +64,9 @@ func NewContainer() (*Container, func()) {
 		pkg.CloseRedis(rdb)
 
 		// 關閉 DB (GORM 需要先取得底層 sql.DB 才能關閉)
-		pkg.CloseDB(db)
+		if err := pkg.CloseDB(db); err != nil {
+			log.Println("關閉資料庫失敗:", err)
+		}
 	}
 
 	// 回傳包含完整依賴的容器

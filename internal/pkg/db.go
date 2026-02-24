@@ -39,10 +39,14 @@ func NewDB() (*gorm.DB, error) {
 }
 
 func CloseDB(db *gorm.DB) error {
-	// GORM 需要先取得底層 sql.DB 才能關閉連線
-	sqlDB, err := db.DB() // 取得底層的 sql.DB 物件
+	// 2. 取得底層 sql.DB 物件
+	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal("無法取得底層資料庫連線: %w", err)
+		log.Println("無法取得底層資料庫連線:", err)
+		return err
 	}
-	return sqlDB.Close() // 關閉資料庫連線，回傳可能的錯誤
+
+	// 3. 關閉連線並回傳結果
+	log.Println("Closing database connection pool...")
+	return sqlDB.Close()
 }
