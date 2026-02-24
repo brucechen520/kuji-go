@@ -50,7 +50,10 @@ func NewContainer() (*Container, func()) {
 	prizeHandler := handlers.NewPrizeHandler(prizeService) // 注入 service
 
 	// [Root Handler] 建立總 Handler，聚合所有子 Handler
-	rootHandler := handlers.NewHandler(prizeHandler) // 將 prizeHandler 放入總 Handler
+	// 使用 Functional Options Pattern 進行組裝，更具可讀性與擴展性
+	rootHandler := handlers.NewHandler(
+		handlers.WithPrizeHandler(prizeHandler),
+	)
 
 	// 定義資源釋放邏輯
 	cleanup := func() {
