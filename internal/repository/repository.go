@@ -15,11 +15,3 @@ type Repository struct {
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db} // 回傳 Repository 結構體的指標，並初始化 db 與 rdb 欄位
 }
-
-// WithTransaction 範例：封裝交易邏輯，確保 Lock 安全
-// 這是一個高階函式，接收一個函式 fn 作為參數
-func (r *Repository) WithTransaction(fn func(tx *gorm.DB) error) error {
-	// 呼叫 GORM 的 Transaction 方法
-	// 它會自動開啟交易，執行 fn，如果 fn 回傳錯誤則 Rollback，否則 Commit
-	return r.db.Transaction(fn)
-}

@@ -4,6 +4,8 @@ import (
 	"fmt" // 引入 fmt 套件，用於字串格式化 (Format)
 	"log"
 	"os" // 引入 os 套件，用於操作作業系統功能，例如讀取環境變數
+	"strconv"
+	"time"
 
 	"gorm.io/driver/postgres" // 引入 GORM 的 PostgreSQL 驅動程式
 	"gorm.io/gorm"            // 引入 GORM ORM 核心套件
@@ -34,6 +36,28 @@ func NewDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err // 如果有錯誤，回傳 nil 連線物件和錯誤訊息
 	}
+
+	// --- 連線池 (Connection Pool) 設定 ---
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("無法取得底層 sql.DB: %w", err)
+	}
+
+	// 從環境變數讀取連線池設定，若無則使用預設值
+	maxIdleConns, _ := strconv.Atoi(os.Getenv("DB_MAX_IDLE_CONNS"))
+	if maxIdleConns == 0 {
+		maxIdleConns = 10 // 設定最大閒置連線數 (建議值)
+	}
+
+	maxOpenConns, _ := strconv.Atoi(os.Getenv("DB_MAX_OPEN_CONNS"))
+	if maxOpenConns == 0 {
+		maxOpenConns = 100 // 設定最大開啟連線數 (建議值)
+	}
+
+	// 設定連線可被重複使用的最大時間
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(time.Hour) // 建議設定為一小時，避免連線因網路問題失效
 
 	return db, nil // 如果成功，回傳 db 連線物件和 nil 錯誤
 }

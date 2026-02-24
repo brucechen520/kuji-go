@@ -39,13 +39,15 @@ func NewContainer() (*Container, func()) {
 		log.Fatal("Redis 連線失敗: ", err) // 若連線失敗，直接終止程式
 	}
 
+	transactionManager := pkg.NewTransactionManager(db) // 初始化 Transaction Manager，注入 DB 連線
+
 	// 4. 由下而上組裝依賴 (Wiring)
 
 	// [Repository Layer] 建立 Repository
 	repo := repository.NewRepository(db) // 注入 DB 連線
 
 	// [Service Layer] 建立 Service，注入 Repository 和 Redis
-	prizeService := service.NewPrizeService(repo, rdb) // 注入 repo 和 rdb
+	prizeService := service.NewPrizeService(repo, rdb, transactionManager) // 注入 repo 和 rdb
 
 	// [Handler Layer] 建立 Handler，注入 Service
 	prizeHandler := handlers.NewPrizeHandler(prizeService) // 注入 service
