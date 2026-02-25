@@ -7,6 +7,7 @@ import (
 	"kuji-go/internal/repository" // 引入 repository 層
 	"kuji-go/internal/service"    // 引入 service 層
 	"log"                         // 引入日誌套件
+	"os"                          // 引入 os 套件，用於讀取環境變數
 
 	"github.com/joho/godotenv" // 引入環境變數載入工具
 )
@@ -30,8 +31,16 @@ func NewContainer() (*Container, func()) {
 	if err != nil {
 		log.Fatal("資料庫連線失敗: ", err) // 若連線失敗，直接終止程式
 	}
+
+	// 如果環境變數設定為重設模式，就先清空
+	if os.Getenv("APP_ENV") == "development" {
+		log.Println("檢測到開發重設模式，正在清空舊資料表...")
+		// 按照依賴順序刪除（先刪除有外鍵的）
+		db.Migrator().DropTable(models.AllModels...) // 使用 GORM 的 Migrator 來刪除資料表，傳入所有模型
+	}
+
 	// 自動遷移資料表結構 (Auto Migration)
-	db.AutoMigrate(&models.Series{}, &models.Box{}, &models.Prize{})
+	db.AutoMigrate(models.AllModels...)
 
 	// 3. 初始化 Redis 連線
 	rdb, err := pkg.NewRedis() // 呼叫 pkg 層建立 Redis 連線
@@ -47,7 +56,7 @@ func NewContainer() (*Container, func()) {
 	repo := repository.NewRepository(db) // 注入 DB 連線
 
 	// [Service Layer] 建立 Service，注入 Repository 和 Redis
-	prizeService := service.NewPrizeService(repo, rdb, transactionManager) // 注入 repo 和 rdb
+	prizeService := service.NewPrizeService(repo, rdb, transactionManager) // 注入 repo, rdb 和 transaction manager
 
 	// [Handler Layer] 建立 Handler，注入 Service
 	prizeHandler := handlers.NewPrizeHandler(prizeService) // 注入 service

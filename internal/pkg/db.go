@@ -30,7 +30,9 @@ func NewDB() (*gorm.DB, error) {
 	// gorm.Open 嘗試建立資料庫連線
 	// postgres.Open(dsn) 指定使用 Postgres 驅動
 	// &gorm.Config{} 可以傳入額外的 GORM 設定，這裡使用預設值
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true, // 遷移時不自動建立外鍵約束，避免開發階段的遷移問題
+	})
 
 	// Go 語言標準的錯誤處理方式：檢查 err 是否不為 nil
 	if err != nil {

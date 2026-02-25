@@ -8,6 +8,7 @@ type Series struct {
 	gorm.Model         // 內嵌 gorm.Model，自動包含 ID, CreatedAt, UpdatedAt, DeletedAt 欄位
 	Name        string `gorm:"unique;not null"` // 設定 Name 欄位為唯一且不可為空
 	Description string // 描述欄位
+	Price       int    `gorm:"not null;default:0"` // 每一抽需要的代幣點數
 	Boxes       []Box  // 定義一對多關聯 (Has Many)，一個系列可以有多個箱子
 }
 
@@ -17,10 +18,11 @@ type Series struct {
 type Box struct {
 	gorm.Model
 	SeriesID       uint
-	LocationName   string  `gorm:"index"`
-	TotalQuantity  int     // 總抽數，例如 80
-	RemainQuantity int     // 剩餘抽數
-	Prizes         []Prize // Has Many 關聯
+	LocationName   string    `gorm:"index"`
+	TotalQuantity  int       // 總抽數，例如 80
+	RemainQuantity int       // 剩餘抽數
+	Prizes         []Prize   // Has Many 關聯
+	DrawLogs       []DrawLog // 關聯：這箱產出的所有紀錄
 }
 
 // 獎項
