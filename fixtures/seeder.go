@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"kuji-go/internal/models"
 	"kuji-go/internal/pkg"
 	"log"
@@ -45,30 +46,45 @@ func main() {
 
 // clearTables 清空相關資料表
 func clearTables(db *gorm.DB) error {
-	log.Println("正在清空資料表...")
-	// 依賴順序反向刪除，先刪 Prize，再刪 Box，最後刪 Series
-	if err := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&models.Prize{}).Error; err != nil {
-		return err
+	log.Println("正在清空所有資料表並重置 ID...")
+
+	// 這裡列出所有你想清空的資料表名稱（通常是複數，請根據你 DB 中的實際名稱調整）
+	tables := []string{
+		"probability_phases",
+		"prizes",
+		"boxes",
+		"series",
+		"users",
+		"wallet_histories",
+		"draw_logs",
 	}
-	if err := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&models.Box{}).Error; err != nil {
-		return err
+
+	for _, table := range tables {
+		// 使用 TRUNCATE TABLE ... IF EXISTS ... CASCADE
+		// RESTART IDENTITY 會讓自增 ID 回到 1
+		err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error
+		if err != nil {
+			log.Printf("清空資料表 %s 失敗: %v", table, err)
+			return err
+		}
 	}
-	if err := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&models.Series{}).Error; err != nil {
-		return err
-	}
-	if err := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&models.ProbabilityPhase{}).Error; err != nil {
-		return err
-	}
-	log.Println("資料表清空完畢。")
+
+	log.Println("✅ 資料表清空與 ID 重置完畢。")
 	return nil
 }
 
 // seedData 讀取 JSON 檔案並寫入資料庫
 func seedData(db *gorm.DB) error {
-	data := GetSeries()
+	series := GetSeries()
 
 	// GORM 會自動遞迴處理：
 	// Series -> Boxes -> Prizes -> ProbabilityPhases
 	// 並且會自動將產生的 ID 填入對應的 SeriesID, BoxID, PrizeID
-	return db.Create(&data).Error
+	err := db.Create(&series).Error
+
+	users := GetUsers()
+
+	err = db.Create(&users).Error
+
+	return err
 }

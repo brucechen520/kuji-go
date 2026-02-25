@@ -8,4 +8,5 @@ var AllModels = []interface{}{
 	&ProbabilityPhase{},
 	&User{},
 	&DrawLog{},
+	&WalletHistory{},
 }
