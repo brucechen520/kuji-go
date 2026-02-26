@@ -53,10 +53,10 @@ func NewContainer() (*Container, func()) {
 	// 4. 由下而上組裝依賴 (Wiring)
 
 	// [Repository Layer] 建立 Repository
-	repo := repository.NewRepository(db) // 注入 DB 連線
+	repo := repository.NewRepository(db, rdb) // 注入 DB 與 Redis 連線
 
 	// [Service Layer] 建立 Service，注入 Repository 和 Redis
-	prizeService := service.NewPrizeService(repo, rdb, transactionManager) // 注入 repo, rdb 和 transaction manager
+	prizeService := service.NewPrizeService(repo, transactionManager) // 注入 repo, rdb 和 transaction manager
 
 	// [Handler Layer] 建立 Handler，注入 Service
 	prizeHandler := handlers.NewPrizeHandler(prizeService) // 注入 service

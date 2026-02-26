@@ -4,9 +4,6 @@ import (
 	"context"                 // 引入 context 套件，用於傳遞請求上下文
 	"kuji-go/internal/models" // 引入 models
 	"kuji-go/internal/pkg"
-
-	// 引入 repository 層，用於存取資料庫
-	"github.com/redis/go-redis/v9" // 引入 Redis 套件
 )
 
 // PrizeRepository 定義了 PrizeService 所需的資料庫操作
@@ -18,14 +15,13 @@ type PrizeRepository interface {
 // PrizeService 結構體定義了獎品相關的服務
 type PrizeService struct {
 	Repo               PrizeRepository         // 改為依賴介面
-	RDB                *redis.Client           // 持有 Redis Client 的依賴，用於操作快取
 	TransactionManager *pkg.TransactionManager // 持有 Transaction Manager 的依賴，用於處理事務
 }
 
 // NewPrizeService 是建構函式，用於初始化 PrizeService
 // 接收 Repository 和 Redis 作為參數 (依賴注入)
-func NewPrizeService(repo PrizeRepository, rdb *redis.Client, txManager *pkg.TransactionManager) *PrizeService {
-	return &PrizeService{Repo: repo, RDB: rdb, TransactionManager: txManager} // 回傳初始化後的 Service 指標
+func NewPrizeService(repo PrizeRepository, txManager *pkg.TransactionManager) *PrizeService {
+	return &PrizeService{Repo: repo, TransactionManager: txManager} // 回傳初始化後的 Service 指標
 }
 
 // GetPrizes 實作獲取獎品列表的商業邏輯
