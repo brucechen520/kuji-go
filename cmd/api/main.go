@@ -1,62 +1,75 @@
-package main // main 套件是 Go 程式的執行入口
+package main
 
 import (
-	"context"                 // 引入 context
-	"kuji-go/internal/app"    // 引入 app 套件，負責應用程式組裝
-	"kuji-go/internal/router" // 引入 router 套件
-	"log"                     // 引入標準日誌套件
-	"net/http"                // 引入 http 套件
-	"os"                      // 引入 os 套件
-	"os/signal"               // 引入 signal 套件
-	"syscall"                 // 引入 syscall
-	"time"                    // 引入 time 套件
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/brucechen520/kuji-go/internal/router"
+	"github.com/brucechen520/kuji-go/pkg/shutdown"
+	"github.com/joho/godotenv"
+
+	"go.uber.org/zap"
 )
 
-// main 函式是程式執行的起點
 func main() {
-	// 1. 初始化應用程式容器
-	// 呼叫 app.NewContainer() 完成所有依賴的組裝 (DB -> Repo -> Service -> Handler)
-	// 接收 cleanup 函式，準備在程式結束時執行
-	container, cleanup := app.NewContainer()
+	_ = godotenv.Load() // 自動讀取 .env 並寫入 os.Environ
 
-	// 確保在 main 函式結束前 (無論是正常結束還是 panic) 關閉資料庫與 Redis
-	defer cleanup()
+	// 1. 初始化 Zap Logger (取代原本複雜的 logger.NewJSONLogger)
+	// 在開發環境建議用 NewDevelopment，生產環境用 NewProduction
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync() // 確保程式結束前日誌有刷入磁碟
 
-	// 2. 設定路由
-	// 從容器中取出組裝好的 Handler 傳給 Router
-	r := router.SetupRouter(container.Handler)
-
-	// 3. 啟動伺服器
-	// 使用 http.Server 取代 r.Run()，以便控制關閉流程
-	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: r,
+	// 2. 初始化 HTTP 服務 (組裝所有 Repo, Service, Handler)
+	// 我們把原本的兩個 logger 簡化為一個傳進去
+	s, err := router.NewHTTPServer(logger)
+	if err != nil {
+		logger.Fatal("HTTP Server 初始化失敗", zap.Error(err))
 	}
 
-	// 在 Goroutine 中啟動伺服器，避免阻塞主線程
+	// 3. 設定 HTTP Server
+	server := &http.Server{
+		Addr:    "127.0.0.1:8080", // 確保 configs 裡有定義 Port
+		Handler: s.Mux,
+	}
+
+	// 4. 啟動服務 (非阻塞)
 	go func() {
-		log.Println("一番賞系統成功啟動於 :8080")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("伺服器啟動失敗: %s\n", err)
+		logger.Info("服務啟動中...", zap.String("port", "8080"))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("HTTP Server 啟動異常", zap.Error(err))
 		}
 	}()
 
-	// 4. 優雅關閉 (Graceful Shutdown)
-	// 等待中斷信號 (如 Ctrl+C 或 Docker stop)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit // 阻塞直到收到信號
-	log.Println("正在關閉伺服器...")
+	// 5. 優雅關閉 Hook
+	shutdown.NewHook().Close(
+		// 關閉 HTTP Server
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
 
-	// 設定 5 秒的超時時間，讓正在處理的請求有時間完成
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+			if err := server.Shutdown(ctx); err != nil {
+				logger.Error("HTTP Server 關閉失敗", zap.Error(err))
+			}
+		},
 
-	// 呼叫 Shutdown 停止接收新請求並等待舊請求完成
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("伺服器強制關閉:", err)
-	}
+		// 關閉 DB 連線
+		func() {
+			if s.Db != nil {
+				// 這裡調用你內部的關閉邏輯
+				if err := s.Db.DbWClose(); err != nil {
+					logger.Error("資料庫(W)關閉失敗", zap.Error(err))
+				}
+			}
+		},
 
-	log.Println("伺服器已優雅關閉")
-	// 這裡會自動執行 defer cleanup()，關閉 DB 和 Redis
+		// 關閉快取 (Redis)
+		func() {
+			if s.Rdb != nil {
+				if err := s.Rdb.RDBWClose(); err != nil {
+					logger.Error("快取服務關閉失敗", zap.Error(err))
+				}
+			}
+		},
+	)
 }

@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Kuji API",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/api/main.go", // 指向你的 main.go
+            "env": {
+                "DB_HOST": "localhost",
+                "DB_PORT": "5432",
+                "DB_USER": "kuji_user",
+                "DB_PASSWORD": "kuji_password",
+                "DB_NAME": "kuji_db",
+				"REDIS_HOST": "localhost",
+				"REDIS_PORT": "6379",
+				"REDIS_PASSWORD": "",
+                "PROJECT_PORT": ":8080"
+            },
+            "showLog": true
+        }
+    ]
+}

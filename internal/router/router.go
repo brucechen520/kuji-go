@@ -1,41 +1,71 @@
-package router // 定義 router 套件
+package router
 
 import (
-	"kuji-go/internal/handlers" // 引入 handlers 套件
+	"errors"
+	"fmt"
 
-	"github.com/gin-gonic/gin" // 引入 Gin 框架
+	"github.com/brucechen520/kuji-go/internal/pkg"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
-// SetupRouter 設定所有的路由規則
-// 接收一個初始化好的 Handler 結構體
-func SetupRouter(h *handlers.Handler) *gin.Engine {
-	r := gin.Default() // 建立一個預設的 Gin 引擎 (包含 Logger 和 Recovery 中介軟體)
+type resource struct {
+	mux                core.Mux
+	logger             *zap.Logger
+	db                 *gorm.DB
+	rdb                *redis.Client
+	transactionManager *pkg.TransactionManager
+}
 
-	// 前台 API
-	v1 := r.Group("/api/v1") // 建立路由群組，所有底下的 API 都會以 /api/v1 開頭
-	{
-		// 定義 GET /api/v1/prizes，並指定處理函式為 h.Prize.GetList
-		v1.GET("/prizes", h.Prize.GetList)
+type Server struct {
+	Mux                core.Mux
+	Db                 pkg.DbRepo
+	Rdb                pkg.RedisRepo
+	TransactionManager *pkg.TransactionManager
+}
 
-		// 定義 POST /api/v1/draw，處理抽獎
-		v1.POST("/draw", h.Prize.Draw)
-
-		// 定義一個簡單的測試路由，使用匿名函式 (Anonymous Function) 直接處理
-		v1.GET("/user/me", func(c *gin.Context) {
-			c.JSON(200, gin.H{"user": "小明", "coins": 100})
-		})
+func NewHTTPServer(logger *zap.Logger) (*Server, error) {
+	if logger == nil {
+		return nil, errors.New("logger required")
 	}
 
-	// 後台管理 API (可以加 Middleware 做認證)
-	admin := r.Group("/admin") // 建立後台路由群組 /admin
-	{
-		admin.POST("/box/init", func(c *gin.Context) {
-			c.JSON(201, gin.H{"status": "海賊王箱子已初始化"})
-		})
-		admin.PATCH("/prize/probability", func(c *gin.Context) {
-			c.JSON(200, gin.H{"status": "機率調整成功"})
-		})
+	r := new(resource)
+	r.logger = logger
+
+	// 1. 初始化你的 DB 和 Redis (原本在 app.go 做的事)
+	db, err := pkg.NewDB()
+	if err != nil {
+		return nil, fmt.Errorf("db init failed: %w", err)
 	}
 
-	return r // 回傳設定好的 Gin 引擎
+	// 2. 檢查 d 是不是 nil (防禦性程式碼)
+	if db == nil {
+		return nil, errors.New("db instance is nil")
+	}
+	transactionManager := pkg.NewTransactionManager(db.GetDbW())
+	rdb, _ := pkg.NewRedis()
+
+	// 3. 初始化他的核心引擎
+	mux, err := core.New(logger, core.WithDisableSwagger(), core.WithEnableRate())
+	if err != nil {
+		panic(err)
+	}
+
+	r.mux = mux
+	r.db = db.GetDbW()     // 這裡直接傳 GORM 的 DB 連線，讓 Repository 可以使用
+	r.rdb = rdb.GetRedis() // 這裡直接傳 Redis 客戶端，讓 Repository 可以使用
+	r.transactionManager = transactionManager
+
+	// 设置 API 路由
+	setApiRouter(r)
+
+	s := new(Server)
+	s.Mux = mux
+	s.Db = db   // 這裡直接傳 repo 讓 main.go 可以關閉 DB 連線
+	s.Rdb = rdb // 這裡直接傳 repo 讓 main.go 可以關閉 Redis 連線
+	s.TransactionManager = r.transactionManager
+
+	return s, nil
 }

@@ -11,9 +11,33 @@ import (
 	"gorm.io/gorm"            // 引入 GORM ORM 核心套件
 )
 
-// NewDB 負責建立與資料庫的實體連線
-// 回傳值為 (*gorm.DB, error)，這是 Go 的慣用寫法，同時回傳結果與錯誤
-func NewDB() (*gorm.DB, error) {
+// DbRepo 定義了外部（如 main, router）可以對資料庫做的管理操作
+type DbRepo interface {
+	GetDbW() *gorm.DB // 給 Repository 層拿去執行 SQL
+	DbWClose() error  // 給 main.go 優雅關閉連線
+}
+
+// dbRepo 是私有結構，實作了上面的 Repo 介面
+type dbRepo struct {
+	db *gorm.DB
+}
+
+// GetDbW 實作：回傳內部的 GORM 實例
+func (d *dbRepo) GetDbW() *gorm.DB {
+	return d.db
+}
+
+// DbWClose 實作：關閉連線池
+func (d *dbRepo) DbWClose() error {
+	sqlDB, err := d.db.DB()
+	if err != nil {
+		return err
+	}
+	log.Println("Closing database connection pool...")
+	return sqlDB.Close()
+}
+
+func NewDB() (DbRepo, error) {
 	// 建議從環境變數讀取
 	host := os.Getenv("DB_HOST")         // 讀取環境變數中的 DB_HOST (主機位址)
 	user := os.Getenv("DB_USER")         // 讀取 DB_USER (使用者名稱)
@@ -61,18 +85,6 @@ func NewDB() (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetConnMaxLifetime(time.Hour) // 建議設定為一小時，避免連線因網路問題失效
 
-	return db, nil // 如果成功，回傳 db 連線物件和 nil 錯誤
-}
-
-func CloseDB(db *gorm.DB) error {
-	// 2. 取得底層 sql.DB 物件
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Println("無法取得底層資料庫連線:", err)
-		return err
-	}
-
-	// 3. 關閉連線並回傳結果
-	log.Println("Closing database connection pool...")
-	return sqlDB.Close()
+	// 將 *gorm.DB 包進我們的結構體中，並以介面型別回傳
+	return &dbRepo{db: db}, nil
 }

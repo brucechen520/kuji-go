@@ -9,8 +9,19 @@ import (
 	"github.com/redis/go-redis/v9" // 引入 Redis 客戶端
 )
 
+// RedisRepo 定義了外部（如 main, router）可以對資料庫做的管理操作
+type RedisRepo interface {
+	GetRedis() *redis.Client // 給 Repository 層拿去執行 Redis 操作
+	RDBWClose() error        // 給 main.go 優雅關閉連線
+}
+
+// redisRepo 是私有結構，實作了上面的 Repo 介面
+type redisRepo struct {
+	rdb *redis.Client
+}
+
 // NewRedis 初始化 Redis 客戶端
-func NewRedis() (*redis.Client, error) {
+func NewRedis() (RedisRepo, error) {
 	// 組合 Redis 位址 (Host:Port)
 	addr := fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
 
@@ -26,11 +37,15 @@ func NewRedis() (*redis.Client, error) {
 	if _, err := rdb.Ping(context.Background()).Result(); err != nil {
 		return nil, fmt.Errorf("無法連線至 Redis: %w", err) // %w 用於包裝錯誤 (Wrap Error)，保留原始錯誤訊息以便後續追蹤
 	}
-	return rdb, nil // 回傳成功的客戶端實例
+	return &redisRepo{rdb: rdb}, nil // 回傳成功的客戶端實例
 }
 
-func CloseRedis(rdb *redis.Client) error {
-	if err := rdb.Close(); err != nil {
+func (r *redisRepo) GetRedis() *redis.Client {
+	return r.rdb
+}
+
+func (r *redisRepo) RDBWClose() error {
+	if err := r.rdb.Close(); err != nil {
 		log.Println("關閉 Redis 失敗:", err)
 	}
 
