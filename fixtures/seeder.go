@@ -6,7 +6,7 @@ import (
 
 	"github.com/brucechen520/kuji-go/internal/config"
 	"github.com/brucechen520/kuji-go/internal/model"
-	"github.com/brucechen520/kuji-go/internal/repository"
+	"github.com/brucechen520/kuji-go/internal/pkg"
 
 	"gorm.io/gorm"
 )
@@ -19,10 +19,13 @@ func main() {
 		fmt.Println("Load config file failed")
 	}
 
-	db, err := repository.InitDB(cfg)
+	db, cleanup, err := pkg.InitDB(cfg)
 	if err != nil {
 		log.Fatalf("資料庫連線失敗: %v", err)
 	}
+
+	defer cleanup()
+
 	log.Println("資料庫連線成功！")
 
 	// 執行資料遷移，確保資料表存在

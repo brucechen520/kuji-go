@@ -9,6 +9,7 @@ import (
 
 	"github.com/brucechen520/kuji-go/internal/config"
 	clientH "github.com/brucechen520/kuji-go/internal/handler/client" // 確保引用了 http 層
+	"github.com/brucechen520/kuji-go/internal/pkg"
 	"github.com/brucechen520/kuji-go/internal/repository"
 	"github.com/brucechen520/kuji-go/internal/route"
 	clientSrv "github.com/brucechen520/kuji-go/internal/service/client"
@@ -29,7 +30,10 @@ func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
 		// 4. 注入傳輸層 (Handler)
 		clientH.ProviderSet,
 
-		// 5. 注入 Route
+		// 5. 注入 pkg
+		pkg.ProviderSet,
+
+		// 6. 注入 Route
 		route.ProviderSet,
 
 		// 5. 最終組裝：回傳 Gin Engine

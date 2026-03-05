@@ -9,7 +9,7 @@ package main
 import (
 	"github.com/brucechen520/kuji-go/internal/config"
 	client2 "github.com/brucechen520/kuji-go/internal/handler/client"
-	"github.com/brucechen520/kuji-go/internal/repository"
+	"github.com/brucechen520/kuji-go/internal/pkg"
 	"github.com/brucechen520/kuji-go/internal/repository/postgre"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 	"github.com/brucechen520/kuji-go/internal/route"
@@ -20,13 +20,14 @@ import (
 // Injectors from wire.go:
 
 func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
-	db, err := repository.InitDB(cfg)
+	db, cleanup, err := pkg.InitDB(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	userRepository := postgre.NewUserRepo(db)
-	redisClient, err := repository.InitRedis(cfg)
+	redisClient, cleanup2, err := pkg.InitRedis(cfg)
 	if err != nil {
+		cleanup()
 		return nil, nil, err
 	}
 	tokenStore := redis.NewTokenStore(redisClient)
@@ -35,5 +36,7 @@ func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
 	authHandler := client2.NewAuthHandler(authService)
 	engine := route.NewRouter(authHandler)
 	return engine, func() {
+		cleanup2()
+		cleanup()
 	}, nil
 }
