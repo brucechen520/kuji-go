@@ -2,30 +2,31 @@ package main
 
 import (
 	"fmt"
-	"kuji-go/internal/models"
-	"kuji-go/internal/pkg"
 	"log"
 
-	"github.com/joho/godotenv"
+	"github.com/brucechen520/kuji-go/internal/config"
+	"github.com/brucechen520/kuji-go/internal/model"
+	"github.com/brucechen520/kuji-go/internal/repository"
+
 	"gorm.io/gorm"
 )
 
 func main() {
-	// 載入環境變數，從專案根目錄的 .env 檔案
-	// 假設 seeder 是從專案根目錄執行的 (e.g., go run internal/fixtures/seeder.go)
-	if err := godotenv.Load(); err != nil {
-		log.Println("找不到 .env 檔案，將使用系統環境變數")
+	// 建立資料庫連線
+	cfg, err := config.Load()
+
+	if err != nil {
+		fmt.Println("Load config file failed")
 	}
 
-	// 建立資料庫連線
-	db, err := pkg.NewDB()
+	db, err := repository.InitDB(cfg)
 	if err != nil {
 		log.Fatalf("資料庫連線失敗: %v", err)
 	}
 	log.Println("資料庫連線成功！")
 
 	// 執行資料遷移，確保資料表存在
-	err = db.AutoMigrate(models.AllModels...)
+	err = db.AutoMigrate(model.AllModels...)
 	if err != nil {
 		log.Fatalf("資料庫遷移失敗: %v", err)
 	}
@@ -73,7 +74,6 @@ func clearTables(db *gorm.DB) error {
 	return nil
 }
 
-// seedData 讀取 JSON 檔案並寫入資料庫
 func seedData(db *gorm.DB) error {
 	series := GetSeries()
 

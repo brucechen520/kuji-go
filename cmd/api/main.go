@@ -2,74 +2,60 @@ package main
 
 import (
 	"context"
+	"errors"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/brucechen520/kuji-go/internal/router"
-	"github.com/brucechen520/kuji-go/pkg/shutdown"
-	"github.com/joho/godotenv"
-
-	"go.uber.org/zap"
+	"github.com/brucechen520/kuji-go/internal/config"
 )
 
 func main() {
-	_ = godotenv.Load() // 自動讀取 .env 並寫入 os.Environ
-
-	// 1. 初始化 Zap Logger (取代原本複雜的 logger.NewJSONLogger)
-	// 在開發環境建議用 NewDevelopment，生產環境用 NewProduction
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync() // 確保程式結束前日誌有刷入磁碟
-
-	// 2. 初始化 HTTP 服務 (組裝所有 Repo, Service, Handler)
-	// 我們把原本的兩個 logger 簡化為一個傳進去
-	s, err := router.NewHTTPServer(logger)
+	// 1. 載入設定 (從環境變數或 CD 注入的設定檔)
+	cfg, err := config.Load()
 	if err != nil {
-		logger.Fatal("HTTP Server 初始化失敗", zap.Error(err))
+		log.Fatalf("無法載入設定檔: %v", err)
 	}
 
-	// 3. 設定 HTTP Server
-	server := &http.Server{
-		Addr:    "127.0.0.1:8080", // 確保 configs 裡有定義 Port
-		Handler: s.Mux,
+	// 2. 透過 Wire 產生的函數進行依賴注入
+	// router: Gin Engine, cleanup: 關閉 DB/Redis 的函數
+	router, cleanup, err := InitializeApp(cfg)
+	if err != nil {
+		log.Fatalf("依賴注入初始化失敗: %v", err)
+	}
+	defer cleanup() // 程式結束時確保連線資源釋放
+
+	// 3. 設定 HTTP Server (為了支援優雅關閉，不直接用 router.Run)
+	srv := &http.Server{
+		Addr:    ":" + cfg.App.Port, // 假設你在 config 有定義 Port
+		Handler: router,
 	}
 
-	// 4. 啟動服務 (非阻塞)
+	// 4. 在 Goroutine 中啟動 Server，避免阻塞主執行緒
 	go func() {
-		logger.Info("服務啟動中...", zap.String("port", "8080"))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("HTTP Server 啟動異常", zap.Error(err))
+		log.Printf("服務啟動於埠號 %s...", cfg.App.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("監聽失敗: %v", err)
 		}
 	}()
 
-	// 5. 優雅關閉 Hook
-	shutdown.NewHook().Close(
-		// 關閉 HTTP Server
-		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
+	// 5. 等待中斷訊號 (優雅關閉 Graceful Shutdown)
+	quit := make(chan os.Signal, 1)
+	// 監聽 Ctrl+C (SIGINT) 或 系統刪除訊號 (SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("正在關閉伺服器...")
 
-			if err := server.Shutdown(ctx); err != nil {
-				logger.Error("HTTP Server 關閉失敗", zap.Error(err))
-			}
-		},
+	// 設定 5 秒超時，給予正在處理的請求緩衝時間
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-		// 關閉 DB 連線
-		func() {
-			if s.Db != nil {
-				// 這裡調用你內部的關閉邏輯
-				if err := s.Db.DbWClose(); err != nil {
-					logger.Error("資料庫(W)關閉失敗", zap.Error(err))
-				}
-			}
-		},
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("伺服器強制關閉:", err)
+	}
 
-		// 關閉快取 (Redis)
-		func() {
-			if s.Rdb != nil {
-				if err := s.Rdb.RDBWClose(); err != nil {
-					logger.Error("快取服務關閉失敗", zap.Error(err))
-				}
-			}
-		},
-	)
+	log.Println("伺服器已安全退出")
 }

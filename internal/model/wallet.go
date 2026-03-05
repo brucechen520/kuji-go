@@ -1,4 +1,4 @@
-package models
+package model
 
 import "gorm.io/gorm"
 
@@ -10,4 +10,10 @@ type WalletHistory struct {
 	Amount      int    // 變動金額 (正負值)
 	Balance     int    // 變動後的餘額快照
 	Description string // 備註
+}
+
+type Wallet struct {
+	gorm.Model
+	UserID  uint `gorm:"index"`
+	Balance int  // 剩餘金額
 }

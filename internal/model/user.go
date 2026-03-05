@@ -1,12 +1,12 @@
-package models // 定義 models 套件，存放資料結構
+package model // 定義 models 套件，存放資料結構
 
 import "gorm.io/gorm" // 引入 GORM 套件
 
 type User struct {
 	gorm.Model
-	Username      string          `gorm:"unique;not null"`
-	Email         string          `gorm:"unique"`
-	Balance       int             `gorm:"not null;default:0"` // 虛擬代幣餘額
+	Username      string `gorm:"unique;not null"`
+	Email         string `gorm:"unique"`
+	Wallet        Wallet
 	DrawLogs      []DrawLog       // 抽獎紀錄
 	WalletHistory []WalletHistory // 點數增減流水帳
 }

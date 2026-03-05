@@ -1,15 +1,15 @@
-package models // 定義 models 套件，存放資料結構
+package model // 定義 models 套件，存放資料結構
 
 import "gorm.io/gorm" // 引入 GORM 套件
 
 // 一番賞系列
 // 定義 Series 結構體，對應資料庫中的 series 表
 type Series struct {
-	gorm.Model         // 內嵌 gorm.Model，自動包含 ID, CreatedAt, UpdatedAt, DeletedAt 欄位
-	Name        string `gorm:"unique;not null"` // 設定 Name 欄位為唯一且不可為空
-	Description string // 描述欄位
-	Price       int    `gorm:"not null;default:0"` // 每一抽需要的代幣點數
-	Boxes       []Box  // 定義一對多關聯 (Has Many)，一個系列可以有多個箱子
+	gorm.Model
+	Name        string `gorm:"unique;not null"`
+	Description string
+	Price       int   `gorm:"not null;default:0"` // 每一抽需要的代幣點數
+	Boxes       []Box // 定義一對多關聯 (Has Many)，一個系列可以有多個箱子
 }
 
 // 抽獎箱
