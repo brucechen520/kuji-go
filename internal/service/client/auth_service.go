@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
-	"github.com/brucechen520/kuji-go/internal/repository/postgre"
+	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 )
 
 type AuthService struct {
-	userRepo   postgre.UserRepository
+	userRepo   client.UserRepository
 	tokenStore redis.TokenStore
 }
 
-func NewAuthService(ur postgre.UserRepository, ts redis.TokenStore, cfg *config.AuthConfig) *AuthService {
+func NewAuthService(ur client.UserRepository, ts redis.TokenStore, cfg *config.AuthConfig) *AuthService {
 	return &AuthService{userRepo: ur, tokenStore: ts}
 }
 

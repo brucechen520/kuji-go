@@ -26,7 +26,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("依賴注入初始化失敗: %v", err)
 	}
-	defer cleanup() // 程式結束時確保連線資源釋放
+	defer func() {
+		cleanup()
+		log.Printf("Close redis and database connection")
+	}() // 程式結束時確保連線資源釋放
 
 	// 3. 設定 HTTP Server (為了支援優雅關閉，不直接用 router.Run)
 	srv := &http.Server{
@@ -51,7 +54,10 @@ func main() {
 
 	// 設定 5 秒超時，給予正在處理的請求緩衝時間
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	defer func() {
+		cancel()
+		log.Println("緩衝時間結束關閉伺服器中")
+	}()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("伺服器強制關閉:", err)

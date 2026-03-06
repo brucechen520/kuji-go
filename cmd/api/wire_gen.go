@@ -8,12 +8,12 @@ package main
 
 import (
 	"github.com/brucechen520/kuji-go/internal/config"
-	client2 "github.com/brucechen520/kuji-go/internal/handler/client"
+	client3 "github.com/brucechen520/kuji-go/internal/handler/client"
 	"github.com/brucechen520/kuji-go/internal/pkg"
-	"github.com/brucechen520/kuji-go/internal/repository/postgre"
+	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 	"github.com/brucechen520/kuji-go/internal/route"
-	"github.com/brucechen520/kuji-go/internal/service/client"
+	client2 "github.com/brucechen520/kuji-go/internal/service/client"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,7 +24,7 @@ func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	userRepository := postgre.NewUserRepo(db)
+	userRepository := client.NewUserRepo(db)
 	redisClient, cleanup2, err := pkg.InitRedis(cfg)
 	if err != nil {
 		cleanup()
@@ -32,9 +32,14 @@ func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
 	}
 	tokenStore := redis.NewTokenStore(redisClient)
 	authConfig := &cfg.Auth
-	authService := client.NewAuthService(userRepository, tokenStore, authConfig)
-	authHandler := client2.NewAuthHandler(authService)
-	engine := route.NewRouter(authHandler)
+	authService := client2.NewAuthService(userRepository, tokenStore, authConfig)
+	authHandler := client3.NewAuthHandler(authService)
+	seriesRepository := client.NewSeriesRepo(db)
+	kujiStore := redis.NewKujiStore(redisClient)
+	seriesService := client2.NewSeriesService(seriesRepository, kujiStore, authConfig)
+	seriesHandler := client3.NewSeriesHandler(seriesService)
+	handlerGroup := route.NewHandlerGroup(authHandler, seriesHandler)
+	engine := route.NewRouter(handlerGroup)
 	return engine, func() {
 		cleanup2()
 		cleanup()

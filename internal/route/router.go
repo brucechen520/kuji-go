@@ -5,12 +5,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *clientH.AuthHandler) *gin.Engine {
+// 也可以這樣設計
+type handlerGroup struct {
+	Auth   *clientH.AuthHandler
+	Series *clientH.SeriesHandler
+}
+
+// 定義這個組裝函數
+func NewHandlerGroup(auth *clientH.AuthHandler, series *clientH.SeriesHandler) *handlerGroup {
+	return &handlerGroup{
+		Auth:   auth,
+		Series: series,
+	}
+}
+
+func NewRouter(h *handlerGroup) *gin.Engine {
 	r := gin.Default()
 
 	v1ClientGroup := r.Group("/api/v1/client")
 	{
-		v1ClientGroup.POST("/login", authHandler.Login)
+		v1ClientGroup.POST("/login", h.Auth.Login)
+		v1ClientGroup.GET("/series/:SeriesID/prizes", h.Series.GetSeriesById)
 	}
 
 	return r
