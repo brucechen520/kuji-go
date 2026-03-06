@@ -54,7 +54,7 @@ func (u *seriesRepository) GetBoxInventoryById(ctx context.Context, id uint) ([]
 	var box model.Box
 	err := u.db.WithContext(ctx).
 		Select("id").
-		Where("id = ? AND remaing_quantity > 0", id).
+		Where("id = ? AND remain_quantity > 0", id).
 		Preload("Prizes", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id, box_id, level, name, remaining_quantity") // box_id 必須＋才能正確 join
 		}).

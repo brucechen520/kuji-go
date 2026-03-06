@@ -30,11 +30,13 @@ func (r *kujiStore) GetBoxInventory(ctx context.Context, boxID uint) (map[string
 	key := pkg.GetBoxInventoryKey(boxID)
 	// HGetAll 一次拿走這個箱子所有獎項的剩餘數
 	results, err := r.client.HGetAll(ctx, key).Result()
-	if err == redis.Nil {
-		return nil, nil // 沒資料，回傳 nil, nil 讓 Service 去 DB 補資料
-	}
 	if err != nil {
-		return nil, err
+		return nil, err // 真正的網路錯誤或 Redis 異常
+	}
+
+	// 關鍵判斷：如果長度為 0，代表 Redis 沒有該箱子的庫存資料
+	if len(results) == 0 {
+		return nil, nil // 告知 Service 去 DB 補貨
 	}
 
 	// 將 string 的 map 轉換成 int
@@ -49,8 +51,15 @@ func (r *kujiStore) GetBoxInventory(ctx context.Context, boxID uint) (map[string
 func (r *kujiStore) SetBoxInventory(ctx context.Context, boxID uint, inv map[string]int) error {
 	key := pkg.GetBoxInventoryKey(boxID)
 
+	// 1. 建立 map[string]interface{}，這符合 go-redis 的 HSet 需求
+	values := make(map[string]interface{}, len(inv))
+	for prizeID, count := range inv {
+		// 直接存入 interface{}，go-redis 會自動幫你轉成 string 寫入 Redis Hash
+		values[prizeID] = count
+	}
+
 	// HSet 支援一次傳入一個 map，自動將所有 Field-Value 對寫入
-	return r.client.HSet(ctx, key, inv).Err()
+	return r.client.HSet(ctx, key, values).Err()
 }
 
 func (r *kujiStore) GetSeriesMeta(ctx context.Context, seriesID uint) (*model.Series, error) {

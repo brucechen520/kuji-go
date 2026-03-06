@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/brucechen520/kuji-go/internal/config"
+	"github.com/brucechen520/kuji-go/internal/dto"
+	"github.com/brucechen520/kuji-go/internal/dto/mapper"
 	"github.com/brucechen520/kuji-go/internal/model"
 	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
@@ -23,7 +25,7 @@ func NewSeriesService(series client.SeriesRepository, kuji redis.KujiStore, cfg 
 	return &SeriesService{seriesRepo: series, kujiStore: kuji}
 }
 
-func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*model.Series, error) {
+func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.SeriesDetailDTO, error) {
 	// 1. 先撈靜態 Meta (系列/箱子/獎項名稱)
 	// 這裡我們用 singleflight 防止 Cache 擊穿
 	series, err, _ := s.sf.Do("series_meta:"+strconv.Itoa(int(id)), func() (interface{}, error) {
@@ -57,16 +59,19 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*model.Seri
 		log.Println(err)
 	}
 
+	// 2. 轉換成 API 用的 DTO (過濾掉所有敏感與無關欄位)
+	// 此時前端只會看到你在 DTO 定義的那幾個 json 欄位
+	dtoSeries := mapper.MapSeriesToDetailDTO(series.(*model.Series))
+
 	// 2. 組合動態庫存
-	res := series.(*model.Series)
-	for i := range res.Boxes {
+	for i := range dtoSeries.Boxes {
 		// 從 Redis 拿 map[string]int
-		inv, err := s.kujiStore.GetBoxInventory(ctx, res.Boxes[i].ID)
+		inv, err := s.kujiStore.GetBoxInventory(ctx, dtoSeries.Boxes[i].ID)
 
 		// 如果 Redis 沒資料 (inv 為 nil)
 		if err == nil && inv == nil {
 			// 去 DB 補貨
-			prizes, dbErr := s.seriesRepo.GetBoxInventoryById(ctx, res.Boxes[i].ID)
+			prizes, dbErr := s.seriesRepo.GetBoxInventoryById(ctx, dtoSeries.Boxes[i].ID)
 			if dbErr != nil { // 1. 處理技術錯誤
 				log.Printf("DB Error: %v", err)
 				return nil, err
@@ -83,22 +88,25 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*model.Seri
 				for _, p := range prizes {
 					inv[strconv.Itoa(int(p.ID))] = p.RemainingQuantity
 				}
-				s.kujiStore.SetBoxInventory(ctx, res.Boxes[i].ID, inv)
+				err = s.kujiStore.SetBoxInventory(ctx, dtoSeries.Boxes[i].ID, inv)
+				if err != nil {
+					log.Printf("SetBoxInventory Error: %v", err)
+				}
 			} else {
 				inv = make(map[string]int) // 補貨失敗，設為空 map
 			}
 		}
 
 		// 將 Hash 的值更新到 Series 結構中
-		for j := range res.Boxes[i].Prizes {
-			prizeID := strconv.Itoa(int(res.Boxes[i].Prizes[j].ID))
+		for j := range dtoSeries.Boxes[i].Prizes {
+			prizeID := strconv.Itoa(int(dtoSeries.Boxes[i].Prizes[j].ID))
 			if count, ok := inv[prizeID]; ok {
-				res.Boxes[i].Prizes[j].RemainingQuantity = count
+				dtoSeries.Boxes[i].Prizes[j].RemainingQuantity = count
 			} else {
-				res.Boxes[i].Prizes[j].RemainingQuantity = 0
+				dtoSeries.Boxes[i].Prizes[j].RemainingQuantity = 0
 			}
 		}
 	}
 
-	return res, nil
+	return dtoSeries, nil
 }
