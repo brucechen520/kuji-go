@@ -11,6 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var _ KujiStore = (*kujiStore)(nil)
+
 type KujiStore interface {
 	GetBoxInventory(ctx context.Context, boxID uint) (map[string]int, error)
 	SetBoxInventory(ctx context.Context, boxID uint, inv map[string]int) error

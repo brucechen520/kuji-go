@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var _ SeriesRepository = (*seriesRepository)(nil)
+
 type SeriesRepository interface {
 	GetSeriesById(ctx context.Context, id uint) (*model.Series, error)
 	GetBoxInventoryById(ctx context.Context, id uint) ([]model.Prize, error)

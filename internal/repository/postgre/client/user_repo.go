@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var _ UserRepository = (*userRepository)(nil)
+
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 }

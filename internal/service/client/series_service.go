@@ -56,7 +56,8 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.Series
 		return dbData, nil
 	})
 	if err != nil {
-		log.Println(err)
+		log.Printf("GetSeriesMeta Error: %v", err)
+		return nil, err
 	}
 
 	// 2. 轉換成 API 用的 DTO (過濾掉所有敏感與無關欄位)

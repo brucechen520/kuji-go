@@ -7,6 +7,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var _ TokenStore = (*tokenStore)(nil)
+
 type TokenStore interface {
 	Save(ctx context.Context, key string, value string, ttl time.Duration) error
 	Get(ctx context.Context, key string) (string, error)

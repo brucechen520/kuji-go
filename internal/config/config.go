@@ -14,6 +14,11 @@ type Config struct {
 	Auth   AuthConfig
 	DB     DBConfig
 	Redis  RedisConfig
+	Logger LoggerConfig
+}
+
+type LoggerConfig struct {
+	Level string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 type AppConfig struct {
