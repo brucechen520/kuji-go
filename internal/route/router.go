@@ -1,6 +1,7 @@
 package route
 
 import (
+	"github.com/brucechen520/kuji-go/internal/config"
 	clientH "github.com/brucechen520/kuji-go/internal/handler/client"
 	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/gin-gonic/gin"
@@ -31,10 +32,9 @@ func RegisterRoutes(e *gin.Engine, h *handlerGroup) {
 }
 
 // NewHTTPServer 直接在這裡組裝 Engine 與路由
-func NewHTTPServer(logger *zap.Logger, h *handlerGroup) *core.Engine {
-	// 1. 初始化引擎 (選項模式)
-	// 這裡可以根據需要傳入 core.WithCors() 等選項
-	engine := core.NewEngine(logger)
+func NewHTTPServer(logger *zap.Logger, cfg *config.AppConfig, h *handlerGroup) *core.Engine {
+	// 1. 初始化引擎，注入 Config 選項
+	engine := core.NewEngine(logger, cfg)
 
 	// 2. 註冊路由 (直接操作 engine.Engine)
 	RegisterRoutes(engine.Engine, h)

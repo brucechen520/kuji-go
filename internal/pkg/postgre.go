@@ -2,17 +2,17 @@ package pkg
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 // InitDB 負責建立 PostgreSQL 連線
-func InitDB(cfg *config.Config) (*gorm.DB, func(), error) {
+func InitDB(cfg *config.Config, zapLogger *zap.Logger) (*gorm.DB, func(), error) {
 	// 這裡的參數會從 config 讀取部署時注入的環境變數
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Taipei",
 		cfg.DB.Host,
@@ -38,11 +38,11 @@ func InitDB(cfg *config.Config) (*gorm.DB, func(), error) {
 
 	// 定義具備日誌功能的 cleanup
 	cleanup := func() {
-		log.Println("正在關閉 PostgreSQL 連線...")
+		zapLogger.Info("正在關閉 PostgreSQL 連線...")
 		if err := sqlDB.Close(); err != nil {
-			log.Printf("PostgreSQL 關閉失敗: %v", err)
+			zapLogger.Error("PostgreSQL 關閉失敗", zap.Error(err))
 		} else {
-			log.Println("PostgreSQL 已安全關閉")
+			zapLogger.Info("PostgreSQL 已安全關閉")
 		}
 	}
 

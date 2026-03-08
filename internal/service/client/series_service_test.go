@@ -1,10 +1,11 @@
 package client
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
+	"github.com/gin-gonic/gin"
 	"github.com/brucechen520/kuji-go/internal/config"
 	"github.com/brucechen520/kuji-go/internal/model"
 	repomock "github.com/brucechen520/kuji-go/internal/repository/postgre/client/mock"
@@ -23,7 +24,8 @@ func TestGetSeriesById_CacheHit(t *testing.T) {
 
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
-	ctx := context.Background()
+	c, _ := gin.CreateTestContext(nil)
+	ctx := core.NewContext(c)
 	seriesID := uint(1)
 	boxID := uint(10)
 
@@ -54,10 +56,10 @@ func TestGetSeriesById_CacheHit(t *testing.T) {
 
 	// Expectations
 	// 1. GetSeriesMeta from Redis hits successfully
-	mockRedis.EXPECT().GetSeriesMeta(ctx, seriesID).Return(mockSeries, nil)
+	mockRedis.EXPECT().GetSeriesMeta(gomock.Any(), seriesID).Return(mockSeries, nil)
 
 	// 2. GetBoxInventory from Redis hits successfully
-	mockRedis.EXPECT().GetBoxInventory(ctx, boxID).Return(mockInv, nil)
+	mockRedis.EXPECT().GetBoxInventory(gomock.Any(), boxID).Return(mockInv, nil)
 
 	// Execute
 	dto, err := service.GetSeriesById(ctx, seriesID)
@@ -85,7 +87,8 @@ func TestGetSeriesById_CacheMiss_DBHit(t *testing.T) {
 
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
-	ctx := context.Background()
+	c, _ := gin.CreateTestContext(nil)
+	ctx := core.NewContext(c)
 	seriesID := uint(2)
 	boxID := uint(20)
 
@@ -114,22 +117,22 @@ func TestGetSeriesById_CacheMiss_DBHit(t *testing.T) {
 
 	// Expectations
 	// 1. GetSeriesMeta from Redis misses
-	mockRedis.EXPECT().GetSeriesMeta(ctx, seriesID).Return(nil, errors.New("redis nil"))
+	mockRedis.EXPECT().GetSeriesMeta(gomock.Any(), seriesID).Return(nil, errors.New("redis nil"))
 
 	// 2. Fallback to DB
-	mockRepo.EXPECT().GetSeriesById(ctx, seriesID).Return(mockSeries, nil)
+	mockRepo.EXPECT().GetSeriesById(gomock.Any(), seriesID).Return(mockSeries, nil)
 
 	// 3. Write back to Redis
-	mockRedis.EXPECT().SetSeriesMeta(ctx, seriesID, mockSeries).Return(nil)
+	mockRedis.EXPECT().SetSeriesMeta(gomock.Any(), seriesID, mockSeries).Return(nil)
 
 	// 4. GetBoxInventory from Redis misses (returns nil without error per kuji_store.go)
-	mockRedis.EXPECT().GetBoxInventory(ctx, boxID).Return(nil, nil)
+	mockRedis.EXPECT().GetBoxInventory(gomock.Any(), boxID).Return(nil, nil)
 
 	// 5. Fallback to DB for inventory
-	mockRepo.EXPECT().GetBoxInventoryById(ctx, boxID).Return(dbPrizes, nil)
+	mockRepo.EXPECT().GetBoxInventoryById(gomock.Any(), boxID).Return(dbPrizes, nil)
 
 	// 6. Write inventory back to Redis
-	mockRedis.EXPECT().SetBoxInventory(ctx, boxID, map[string]int{"2001": 7}).Return(nil)
+	mockRedis.EXPECT().SetBoxInventory(gomock.Any(), boxID, map[string]int{"2001": 7}).Return(nil)
 
 	// Execute
 	dto, err := service.GetSeriesById(ctx, seriesID)
@@ -154,15 +157,16 @@ func TestGetSeriesById_DBNotFound(t *testing.T) {
 
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
-	ctx := context.Background()
+	c, _ := gin.CreateTestContext(nil)
+	ctx := core.NewContext(c)
 	seriesID := uint(3)
 
 	// Expectations
 	// Redis misses
-	mockRedis.EXPECT().GetSeriesMeta(ctx, seriesID).Return(nil, errors.New("redis nil"))
+	mockRedis.EXPECT().GetSeriesMeta(gomock.Any(), seriesID).Return(nil, errors.New("redis nil"))
 
 	// DB completely misses (returns nil, nil)
-	mockRepo.EXPECT().GetSeriesById(ctx, seriesID).Return(nil, nil)
+	mockRepo.EXPECT().GetSeriesById(gomock.Any(), seriesID).Return(nil, nil)
 
 	// Execute
 	dto, err := service.GetSeriesById(ctx, seriesID)
@@ -182,7 +186,8 @@ func TestGetSeriesById_InventoryDBNotFound(t *testing.T) {
 
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
-	ctx := context.Background()
+	c, _ := gin.CreateTestContext(nil)
+	ctx := core.NewContext(c)
 	seriesID := uint(4)
 	boxID := uint(40)
 
@@ -205,13 +210,13 @@ func TestGetSeriesById_InventoryDBNotFound(t *testing.T) {
 
 	// Expectations
 	// 1. GetSeriesMeta from Redis hits successfully
-	mockRedis.EXPECT().GetSeriesMeta(ctx, seriesID).Return(mockSeries, nil)
+	mockRedis.EXPECT().GetSeriesMeta(gomock.Any(), seriesID).Return(mockSeries, nil)
 
 	// 2. GetBoxInventory misses
-	mockRedis.EXPECT().GetBoxInventory(ctx, boxID).Return(nil, nil)
+	mockRedis.EXPECT().GetBoxInventory(gomock.Any(), boxID).Return(nil, nil)
 
 	// 3. Fallback to DB for inventory but returns empty
-	mockRepo.EXPECT().GetBoxInventoryById(ctx, boxID).Return([]model.Prize{}, nil)
+	mockRepo.EXPECT().GetBoxInventoryById(gomock.Any(), boxID).Return([]model.Prize{}, nil)
 
 	// Execute
 	dto, err := service.GetSeriesById(ctx, seriesID)

@@ -38,6 +38,9 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 		customCtx := NewContext(c)
 		defer ReleaseContext(customCtx)
 
+		// 初始化 context, 包括讀取 raw data
+		customCtx.(*customContext).init()
+
 		if !withoutTracePaths[c.Request.URL.Path] {
 			if traceId := c.GetHeader(trace.Header); traceId != "" {
 				customCtx.setTrace(trace.New(traceId))

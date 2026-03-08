@@ -17,6 +17,7 @@ type T interface {
 	WithRequest(req *Request) *Trace
 	WithResponse(resp *Response) *Trace
 	AppendDialog(dialog *Dialog) *Trace
+	AppendDebug(debug *Debug) *Trace
 	AppendSQL(sql *SQL) *Trace
 	AppendRedis(redis *Redis) *Trace
 }

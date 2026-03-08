@@ -20,7 +20,7 @@ func InitializeApp(cfg *config.Config) (*core.Engine, func(), error) {
 	wire.Build(
 		// 1. 設定檔拆解：告訴 Wire 如何從大 Config 拿到 AuthConfig
 		// 注意：這裡的 "Auth" 必須對應到你 config.Config 結構體裡的成員名稱
-		wire.FieldsOf(new(*config.Config), "Auth"),
+		wire.FieldsOf(new(*config.Config), "Auth", "App"),
 		logger.NewRequestLogger,
 
 		// 2. 注入 Repository 層 (包含 InitDB, InitRedis, NewUserRepo, NewTokenStore)

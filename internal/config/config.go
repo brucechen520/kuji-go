@@ -22,7 +22,12 @@ type LoggerConfig struct {
 }
 
 type AppConfig struct {
-	Port string `env:"APP_PORT" envDefault:"3000"`
+	Port              string `env:"APP_PORT" envDefault:"3000"`
+	DisablePProf      bool   `env:"DISABLE_PPROF" envDefault:"false"`
+	DisableSwagger    bool   `env:"DISABLE_SWAGGER" envDefault:"false"`
+	DisablePrometheus bool   `env:"DISABLE_PROMETHEUS" envDefault:"false"`
+	EnableCors        bool   `env:"ENABLE_CORS" envDefault:"true"`
+	EnableRate        bool   `env:"ENABLE_RATE_LIMIT" envDefault:"false"`
 }
 
 type DBConfig struct {

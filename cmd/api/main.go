@@ -3,32 +3,36 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	"go.uber.org/zap"
 
 	"github.com/brucechen520/kuji-go/internal/config"
 )
 
 func main() {
+	// 建立一個臨時的基礎 logger 供初始化階段使用
+	baseLogger, _ := zap.NewProduction()
+	defer baseLogger.Sync() // flushes buffer, if any
+
 	// 1. 載入設定 (從環境變數或 CD 注入的設定檔)
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("無法載入設定檔: %v", err)
+		baseLogger.Fatal("無法載入設定檔", zap.Error(err))
 	}
 
 	// 2. 透過 Wire 產生的函數進行依賴注入
 	// router: Gin Engine, cleanup: 關閉 DB/Redis 的函數
 	router, cleanup, err := InitializeApp(cfg)
 	if err != nil {
-		log.Fatalf("依賴注入初始化失敗: %v", err)
+		baseLogger.Fatal("依賴注入初始化失敗", zap.Error(err))
 	}
 	defer func() {
 		cleanup()
-		log.Printf("Close redis and database connection")
+		baseLogger.Info("Close redis and database connection")
 	}() // 程式結束時確保連線資源釋放
 
 	// 3. 設定 HTTP Server (為了支援優雅關閉，不直接用 router.Run)
@@ -39,9 +43,9 @@ func main() {
 
 	// 4. 在 Goroutine 中啟動 Server，避免阻塞主執行緒
 	go func() {
-		log.Printf("服務啟動於埠號 %s...", cfg.App.Port)
+		baseLogger.Info("服務啟動中...", zap.String("port", cfg.App.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("監聽失敗: %v", err)
+			baseLogger.Fatal("監聽失敗", zap.Error(err))
 		}
 	}()
 
@@ -50,18 +54,18 @@ func main() {
 	// 監聽 Ctrl+C (SIGINT) 或 系統刪除訊號 (SIGTERM)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("正在關閉伺服器...")
+	baseLogger.Info("正在關閉伺服器...")
 
 	// 設定 5 秒超時，給予正在處理的請求緩衝時間
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer func() {
 		cancel()
-		log.Println("緩衝時間結束關閉伺服器中")
+		baseLogger.Info("緩衝時間結束關閉伺服器中")
 	}()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("伺服器強制關閉:", err)
+		baseLogger.Fatal("伺服器強制關閉", zap.Error(err))
 	}
 
-	log.Println("伺服器已安全退出")
+	baseLogger.Info("伺服器已安全退出")
 }

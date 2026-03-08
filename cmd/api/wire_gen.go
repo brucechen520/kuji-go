@@ -22,12 +22,13 @@ import (
 
 func InitializeApp(cfg *config.Config) (*core.Engine, func(), error) {
 	zapLogger := logger.NewRequestLogger(cfg)
-	db, cleanup, err := pkg.InitDB(cfg)
+	appConfig := &cfg.App
+	db, cleanup, err := pkg.InitDB(cfg, zapLogger)
 	if err != nil {
 		return nil, nil, err
 	}
 	userRepository := client.NewUserRepo(db)
-	redisClient, cleanup2, err := pkg.InitRedis(cfg)
+	redisClient, cleanup2, err := pkg.InitRedis(cfg, zapLogger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -41,7 +42,7 @@ func InitializeApp(cfg *config.Config) (*core.Engine, func(), error) {
 	seriesService := client2.NewSeriesService(seriesRepository, kujiStore, authConfig)
 	seriesHandler := client3.NewSeriesHandler(seriesService)
 	handlerGroup := route.NewHandlerGroup(authHandler, seriesHandler)
-	engine := route.NewHTTPServer(zapLogger, handlerGroup)
+	engine := route.NewHTTPServer(zapLogger, appConfig, handlerGroup)
 	return engine, func() {
 		cleanup2()
 		cleanup()

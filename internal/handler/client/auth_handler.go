@@ -3,16 +3,17 @@ package client
 import (
 	"net/http"
 
-	clientSrv "github.com/brucechen520/kuji-go/internal/service/client"
+	clientS "github.com/brucechen520/kuji-go/internal/service/client"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService *clientSrv.AuthService
+	authService *clientS.AuthService
 }
 
-func NewAuthHandler(as *clientSrv.AuthService) *AuthHandler {
+func NewAuthHandler(as *clientS.AuthService) *AuthHandler {
 	return &AuthHandler{authService: as}
 }
 
@@ -27,7 +28,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// 2. 呼叫 Service
-	token, err := h.authService.Login(c.Request.Context(), req.Email)
+	ctx := core.NewContext(c)
+	defer core.ReleaseContext(ctx)
+
+	token, err := h.authService.Login(ctx, req.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return

@@ -2,22 +2,22 @@
 package redis
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/model"
 	"github.com/brucechen520/kuji-go/internal/pkg"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/redis/go-redis/v9"
 )
 
 var _ KujiStore = (*kujiStore)(nil)
 
 type KujiStore interface {
-	GetBoxInventory(ctx context.Context, boxID uint) (map[string]int, error)
-	SetBoxInventory(ctx context.Context, boxID uint, inv map[string]int) error
-	GetSeriesMeta(ctx context.Context, seriesID uint) (*model.Series, error)
-	SetSeriesMeta(ctx context.Context, seriesID uint, series *model.Series) error
+	GetBoxInventory(ctx core.Context, boxID uint) (map[string]int, error)
+	SetBoxInventory(ctx core.Context, boxID uint, inv map[string]int) error
+	GetSeriesMeta(ctx core.Context, seriesID uint) (*model.Series, error)
+	SetSeriesMeta(ctx core.Context, seriesID uint, series *model.Series) error
 }
 
 type kujiStore struct {
@@ -28,10 +28,10 @@ func NewKujiStore(client *redis.Client) KujiStore {
 	return &kujiStore{client: client}
 }
 
-func (r *kujiStore) GetBoxInventory(ctx context.Context, boxID uint) (map[string]int, error) {
+func (r *kujiStore) GetBoxInventory(ctx core.Context, boxID uint) (map[string]int, error) {
 	key := pkg.GetBoxInventoryKey(boxID)
 	// HGetAll 一次拿走這個箱子所有獎項的剩餘數
-	results, err := r.client.HGetAll(ctx, key).Result()
+	results, err := r.client.HGetAll(ctx.StdContext(), key).Result()
 	if err != nil {
 		return nil, err // 真正的網路錯誤或 Redis 異常
 	}
@@ -50,7 +50,7 @@ func (r *kujiStore) GetBoxInventory(ctx context.Context, boxID uint) (map[string
 	return inv, nil
 }
 
-func (r *kujiStore) SetBoxInventory(ctx context.Context, boxID uint, inv map[string]int) error {
+func (r *kujiStore) SetBoxInventory(ctx core.Context, boxID uint, inv map[string]int) error {
 	key := pkg.GetBoxInventoryKey(boxID)
 
 	// 1. 建立 map[string]interface{}，這符合 go-redis 的 HSet 需求
@@ -61,14 +61,14 @@ func (r *kujiStore) SetBoxInventory(ctx context.Context, boxID uint, inv map[str
 	}
 
 	// HSet 支援一次傳入一個 map，自動將所有 Field-Value 對寫入
-	return r.client.HSet(ctx, key, values).Err()
+	return r.client.HSet(ctx.StdContext(), key, values).Err()
 }
 
-func (r *kujiStore) GetSeriesMeta(ctx context.Context, seriesID uint) (*model.Series, error) {
+func (r *kujiStore) GetSeriesMeta(ctx core.Context, seriesID uint) (*model.Series, error) {
 	key := pkg.GetSeriesMetaKey(seriesID)
 
 	// 1. 從 Redis 讀取 JSON 字串
-	val, err := r.client.Get(ctx, key).Bytes()
+	val, err := r.client.Get(ctx.StdContext(), key).Bytes()
 	if err != nil {
 		return nil, err // 如果沒資料或連線失敗，回傳錯誤讓 Service 去 DB 撈
 	}
@@ -81,7 +81,7 @@ func (r *kujiStore) GetSeriesMeta(ctx context.Context, seriesID uint) (*model.Se
 	return &series, nil
 }
 
-func (r *kujiStore) SetSeriesMeta(ctx context.Context, seriesID uint, series *model.Series) error {
+func (r *kujiStore) SetSeriesMeta(ctx core.Context, seriesID uint, series *model.Series) error {
 	key := pkg.GetSeriesMetaKey(seriesID)
 
 	// 1. 序列化
@@ -91,5 +91,5 @@ func (r *kujiStore) SetSeriesMeta(ctx context.Context, seriesID uint, series *mo
 	}
 
 	// 2. 寫入 Redis (設定 TTL，例如 1 小時過期)
-	return r.client.Set(ctx, key, data, 1*time.Hour).Err()
+	return r.client.Set(ctx.StdContext(), key, data, 1*time.Hour).Err()
 }

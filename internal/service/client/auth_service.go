@@ -1,11 +1,11 @@
 package client
 
 import (
-	"context"
 	"strconv"
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 )
@@ -19,7 +19,7 @@ func NewAuthService(ur client.UserRepository, ts redis.TokenStore, cfg *config.A
 	return &AuthService{userRepo: ur, tokenStore: ts}
 }
 
-func (s *AuthService) Login(ctx context.Context, email string) (string, error) {
+func (s *AuthService) Login(ctx core.Context, email string) (string, error) {
 	// 1. 商業邏輯：先找使用者
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {

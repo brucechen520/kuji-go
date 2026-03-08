@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"sync"
 
@@ -25,6 +26,7 @@ type Context interface {
 	setTrace(t Trace)
 	Trace() Trace
 	RawData() []byte
+	StdContext() context.Context
 }
 
 type customContext struct {
@@ -89,4 +91,11 @@ func (c *customContext) RawData() []byte {
 	}
 
 	return body.([]byte)
+}
+
+func (c *customContext) StdContext() context.Context {
+	if c.ctx == nil || c.ctx.Request == nil {
+		return context.Background()
+	}
+	return c.ctx.Request.Context()
 }

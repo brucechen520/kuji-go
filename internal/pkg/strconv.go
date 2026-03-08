@@ -2,11 +2,21 @@ package pkg
 
 import "strconv"
 
-// 這才是 Go 開發者常見的封裝邏輯
-func ParseInt(s string) int {
-	val, err := strconv.Atoi(s)
+// ParseInt 把 string 轉換成 int
+func ParseInt(str string) int {
+	res, err := strconv.Atoi(str)
 	if err != nil {
-		return 0 // 或者 log.Printf("轉型錯誤: %v", err)
+		return 0 // 或者回傳錯誤
 	}
-	return val
+	return res
+}
+
+// StringToUint 把 string 轉換成 uint
+// 如果有錯誤就預設回傳 0 (這是一種選擇，也可以選擇回傳 error)
+func StringToUint(str string) uint {
+	res, err := strconv.ParseUint(str, 10, 32)
+	if err != nil {
+		return 0 // 或者回傳錯誤
+	}
+	return uint(res)
 }

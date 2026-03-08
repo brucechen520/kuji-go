@@ -3,6 +3,7 @@ package core
 import (
 	"net/http"
 
+	"github.com/brucechen520/kuji-go/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	cors "github.com/rs/cors/wrapper/gin"
@@ -14,22 +15,9 @@ type Engine struct {
 	*gin.Engine
 }
 
-type Option func(*option)
-
-type option struct {
-	disablePProf      bool
-	disableSwagger    bool
-	disablePrometheus bool
-	enableCors        bool
-	enableRate        bool
-	// enableOpenBrowser string
-	// alertNotify       proposal.NotifyHandler
-	// recordHandler     proposal.RecordHandler
-}
-
-// NewEngine 透過注入 Logger，組裝一個完整的 Gin 引擎
+// NewEngine 透過注入 Logger 與 Config，組裝一個完整的 Gin 引擎
 // 這裡符合 Wire 的 Provider 定義
-func NewEngine(l *zap.Logger, opts ...Option) *Engine {
+func NewEngine(l *zap.Logger, cfg *config.AppConfig) *Engine {
 	// 這裡設定 gin 為生產模式，減少開發模式的額外輸出
 	gin.SetMode(gin.ReleaseMode)
 
@@ -44,21 +32,15 @@ func NewEngine(l *zap.Logger, opts ...Option) *Engine {
 
 	e := &Engine{r}
 
-	opt := new(option)
-	// 執行所有外掛選項 (Cors, RateLimit 等)
-	for _, f := range opts {
-		f(opt)
-	}
-
-	if !opt.disableSwagger {
+	if !cfg.DisableSwagger {
 		e.GET("/swagger/*any", nil) // register swagger
 	}
 
-	if !opt.disablePrometheus {
+	if !cfg.DisablePrometheus {
 		e.GET("/metrics", gin.WrapH(promhttp.Handler())) // register prometheus
 	}
 
-	if opt.enableCors {
+	if cfg.EnableCors {
 		e.Use(cors.New(cors.Options{
 			AllowedOrigins: []string{"*"},
 			AllowedMethods: []string{

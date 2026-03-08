@@ -1,19 +1,18 @@
 package client
 
 import (
-	"context"
 	"errors"
 
 	"github.com/brucechen520/kuji-go/internal/model"
-
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"gorm.io/gorm"
 )
 
 var _ SeriesRepository = (*seriesRepository)(nil)
 
 type SeriesRepository interface {
-	GetSeriesById(ctx context.Context, id uint) (*model.Series, error)
-	GetBoxInventoryById(ctx context.Context, id uint) ([]model.Prize, error)
+	GetSeriesById(ctx core.Context, id uint) (*model.Series, error)
+	GetBoxInventoryById(ctx core.Context, id uint) ([]model.Prize, error)
 }
 
 type seriesRepository struct {
@@ -27,11 +26,11 @@ func NewSeriesRepo(db *gorm.DB) SeriesRepository {
 	}
 }
 
-func (u *seriesRepository) GetSeriesById(ctx context.Context, id uint) (*model.Series, error) {
+func (u *seriesRepository) GetSeriesById(ctx core.Context, id uint) (*model.Series, error) {
 	var series model.Series
 	// 使用 .Where 加上條件，並透過 .First 抓取單一筆
-	// 記得傳入 ctx 以利於追蹤與超時控制
-	err := u.db.WithContext(ctx).
+	// 記得傳入 ctx.StdContext() 以利於追蹤與超時控制
+	err := u.db.WithContext(ctx.StdContext()).
 		Select("id, name, price, description").
 		Preload("Boxes", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id, series_id, location_name")
@@ -52,9 +51,9 @@ func (u *seriesRepository) GetSeriesById(ctx context.Context, id uint) (*model.S
 	return &series, nil
 }
 
-func (u *seriesRepository) GetBoxInventoryById(ctx context.Context, id uint) ([]model.Prize, error) {
+func (u *seriesRepository) GetBoxInventoryById(ctx core.Context, id uint) ([]model.Prize, error) {
 	var box model.Box
-	err := u.db.WithContext(ctx).
+	err := u.db.WithContext(ctx.StdContext()).
 		Select("id").
 		Where("id = ? AND remain_quantity > 0", id).
 		Preload("Prizes", func(db *gorm.DB) *gorm.DB {

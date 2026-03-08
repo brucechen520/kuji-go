@@ -3,16 +3,16 @@ package client
 import (
 	"net/http"
 
-	clientSrv "github.com/brucechen520/kuji-go/internal/service/client"
-
+	clientS "github.com/brucechen520/kuji-go/internal/service/client"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/gin-gonic/gin"
 )
 
 type SeriesHandler struct {
-	seriesService *clientSrv.SeriesService
+	seriesService *clientS.SeriesService
 }
 
-func NewSeriesHandler(as *clientSrv.SeriesService) *SeriesHandler {
+func NewSeriesHandler(as *clientS.SeriesService) *SeriesHandler {
 	return &SeriesHandler{seriesService: as}
 }
 
@@ -27,7 +27,10 @@ func (s *SeriesHandler) GetSeriesById(c *gin.Context) {
 	}
 
 	// 2. 呼叫 Service
-	result, err := s.seriesService.GetSeriesById(c.Request.Context(), req.SeriesID)
+	ctx := core.NewContext(c)
+	defer core.ReleaseContext(ctx)
+
+	result, err := s.seriesService.GetSeriesById(ctx, req.SeriesID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err})
 		return

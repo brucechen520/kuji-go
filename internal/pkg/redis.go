@@ -3,15 +3,15 @@ package pkg
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // InitRedis 負責建立 Redis 連線
-func InitRedis(cfg *config.Config) (*redis.Client, func(), error) {
+func InitRedis(cfg *config.Config, logger *zap.Logger) (*redis.Client, func(), error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
@@ -26,11 +26,11 @@ func InitRedis(cfg *config.Config) (*redis.Client, func(), error) {
 	}
 
 	cleanup := func() {
-		log.Println("正在關閉 Redis 連線...")
+		logger.Info("正在關閉 Redis 連線...")
 		if err := rdb.Close(); err != nil {
-			log.Printf("Redis 關閉失敗: %v", err)
+			logger.Error("Redis 關閉失敗", zap.Error(err))
 		} else {
-			log.Println("Redis 已安全關閉")
+			logger.Info("Redis 已安全關閉")
 		}
 	}
 

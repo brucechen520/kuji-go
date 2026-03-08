@@ -1,15 +1,16 @@
 package client
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"strconv"
+
+	"go.uber.org/zap"
 
 	"github.com/brucechen520/kuji-go/internal/config"
 	"github.com/brucechen520/kuji-go/internal/dto"
 	"github.com/brucechen520/kuji-go/internal/dto/mapper"
 	"github.com/brucechen520/kuji-go/internal/model"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 	"golang.org/x/sync/singleflight"
@@ -25,24 +26,24 @@ func NewSeriesService(series client.SeriesRepository, kuji redis.KujiStore, cfg 
 	return &SeriesService{seriesRepo: series, kujiStore: kuji}
 }
 
-func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.SeriesDetailDTO, error) {
+func (s *SeriesService) GetSeriesById(ctx core.Context, id uint) (*dto.SeriesDetailDTO, error) {
 	// 1. 先撈靜態 Meta (系列/箱子/獎項名稱)
 	// 這裡我們用 singleflight 防止 Cache 擊穿
 	series, err, _ := s.sf.Do("series_meta:"+strconv.Itoa(int(id)), func() (interface{}, error) {
 		// 嘗試從 Redis 撈完整結構
 		data, err := s.kujiStore.GetSeriesMeta(ctx, id)
 		if err == nil {
-			log.Printf("[Cache Hit] Series %d: Loaded from Redis", id)
+			ctx.GetLogger().Info("[Cache Hit] Loaded from Redis", zap.Uint("series_id", id))
 			return data, nil
 		}
 
-		log.Printf("[Cache Miss] Series %d: Fetching from DB", id)
+		ctx.GetLogger().Info("[Cache Miss] Fetching from DB", zap.Uint("series_id", id))
 
 		// 如果 Redis 沒有，去 DB 撈
 		dbData, err := s.seriesRepo.GetSeriesById(ctx, id)
 		// 系統層錯誤：記錄日誌並向上拋出
 		if err != nil {
-			log.Printf("DB Error: %v", err)
+			ctx.GetLogger().Error("DB Error", zap.Error(err))
 			return nil, err
 		}
 
@@ -56,7 +57,7 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.Series
 		return dbData, nil
 	})
 	if err != nil {
-		log.Printf("GetSeriesMeta Error: %v", err)
+		ctx.GetLogger().Error("GetSeriesMeta Error", zap.Error(err))
 		return nil, err
 	}
 
@@ -74,7 +75,7 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.Series
 			// 去 DB 補貨
 			prizes, dbErr := s.seriesRepo.GetBoxInventoryById(ctx, dtoSeries.Boxes[i].ID)
 			if dbErr != nil { // 1. 處理技術錯誤
-				log.Printf("DB Error: %v", err)
+				ctx.GetLogger().Error("DB Error", zap.Error(err))
 				return nil, err
 			}
 
@@ -91,7 +92,7 @@ func (s *SeriesService) GetSeriesById(ctx context.Context, id uint) (*dto.Series
 				}
 				err = s.kujiStore.SetBoxInventory(ctx, dtoSeries.Boxes[i].ID, inv)
 				if err != nil {
-					log.Printf("SetBoxInventory Error: %v", err)
+					ctx.GetLogger().Error("SetBoxInventory Error", zap.Error(err))
 				}
 			} else {
 				inv = make(map[string]int) // 補貨失敗，設為空 map
