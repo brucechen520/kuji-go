@@ -47,6 +47,11 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 			} else {
 				customCtx.setTrace(trace.New(""))
 			}
+
+			// 重要：將建立好的 Trace 物件註冊進原始的 Context 樹中
+			// 這樣底層呼叫 (如 GORM 或 Redis) 收到的標準 context.Context 才能順利解析 Trace 日誌
+			reqCtx := trace.ContextWithTrace(c.Request.Context(), customCtx.Trace())
+			c.Request = c.Request.WithContext(reqCtx)
 		}
 
 		// 2. 建立 Trace 與 Logger

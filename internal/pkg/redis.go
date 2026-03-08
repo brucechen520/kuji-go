@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
+	"github.com/brucechen520/kuji-go/pkg/trace"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -16,6 +17,9 @@ func InitRedis(cfg *config.Config, logger *zap.Logger) (*redis.Client, func(), e
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
 	})
+
+	// 掛載自定義的 ELK 日誌收集器 Hook
+	rdb.AddHook(trace.NewRedisTraceHook(logger))
 
 	// 測試連線是否成功 (Fail Fast 原則)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -222,7 +222,10 @@ func TestGetSeriesById_InventoryDBNotFound(t *testing.T) {
 	dto, err := service.GetSeriesById(ctx, seriesID)
 
 	// Assert
-	require.Error(t, err)
-	assert.Equal(t, "Prizes 4 not found", err.Error())
-	assert.Nil(t, dto)
+	require.NoError(t, err) // 業務邏輯允許沒有庫存時默默 fallback，不應拋錯
+	require.NotNil(t, dto)
+	assert.Equal(t, seriesID, dto.ID)
+	// 由於沒撈到 Inventory (補貨失敗為空 Map)，RemainingQuantity 應為 0
+	require.Len(t, dto.Boxes[0].Prizes, 1)
+	assert.Equal(t, 0, dto.Boxes[0].Prizes[0].RemainingQuantity)
 }

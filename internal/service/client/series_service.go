@@ -74,17 +74,11 @@ func (s *SeriesService) GetSeriesById(ctx core.Context, id uint) (*dto.SeriesDet
 		if err == nil && inv == nil {
 			// 去 DB 補貨
 			prizes, dbErr := s.seriesRepo.GetBoxInventoryById(ctx, dtoSeries.Boxes[i].ID)
-			if dbErr != nil { // 1. 處理技術錯誤
-				ctx.GetLogger().Error("DB Error", zap.Error(err))
-				return nil, err
+			if dbErr != nil { // 1. 處理技術錯誤：僅記錄日誌，不中斷主流程
+				ctx.GetLogger().Error("DB Error", zap.Error(dbErr))
 			}
 
-			// 業務層錯誤：資料不存在
-			if len(prizes) == 0 {
-				return nil, fmt.Errorf("Prizes %d not found", id)
-			}
-
-			if dbErr == nil && len(prizes) > 0 {
+			if len(prizes) > 0 {
 				// 轉換：將 DB 回傳的 []model.Prize 轉成 map 寫回 Redis
 				inv = make(map[string]int, len(prizes))
 				for _, p := range prizes {
@@ -95,7 +89,7 @@ func (s *SeriesService) GetSeriesById(ctx core.Context, id uint) (*dto.SeriesDet
 					ctx.GetLogger().Error("SetBoxInventory Error", zap.Error(err))
 				}
 			} else {
-				inv = make(map[string]int) // 補貨失敗，設為空 map
+				inv = make(map[string]int) // 補貨失敗，設為空 map 確保前端有預設值
 			}
 		}
 

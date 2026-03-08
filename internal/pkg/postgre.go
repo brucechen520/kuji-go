@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/brucechen520/kuji-go/internal/config"
+	"github.com/brucechen520/kuji-go/pkg/trace"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -22,9 +23,16 @@ func InitDB(cfg *config.Config, zapLogger *zap.Logger) (*gorm.DB, func(), error)
 		cfg.DB.Port,
 	)
 
+	// 使用我們自定義的 ELK SQL Trace Logger
+	dbLogger := trace.NewGormTraceLogger(zapLogger, logger.Config{
+		SlowThreshold:             200 * time.Millisecond,
+		LogLevel:                  logger.Info,
+		IgnoreRecordNotFoundError: true,
+	})
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
-		Logger:                                   logger.Default.LogMode(logger.Info),
+		Logger:                                   dbLogger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to database: %w", err)

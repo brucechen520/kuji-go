@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -20,6 +21,25 @@ type T interface {
 	AppendDebug(debug *Debug) *Trace
 	AppendSQL(sql *SQL) *Trace
 	AppendRedis(redis *Redis) *Trace
+}
+
+type traceContextKey struct{}
+
+// ContextWithTrace 將 Trace 物件包裝入標準 context.Context
+// 這樣 GORM 和 Redis 的 Hook 就能透過 ExtractTrace 把追蹤物件拿出來
+func ContextWithTrace(ctx context.Context, t T) context.Context {
+	if t == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, traceContextKey{}, t)
+}
+
+// ExtractTrace 從標準 context.Context 取出 Trace 物件
+func ExtractTrace(ctx context.Context) T {
+	if t, ok := ctx.Value(traceContextKey{}).(T); ok {
+		return t
+	}
+	return nil
 }
 
 // Trace 紀錄的參數
