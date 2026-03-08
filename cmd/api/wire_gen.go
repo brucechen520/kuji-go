@@ -10,16 +10,18 @@ import (
 	"github.com/brucechen520/kuji-go/internal/config"
 	client3 "github.com/brucechen520/kuji-go/internal/handler/client"
 	"github.com/brucechen520/kuji-go/internal/pkg"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/brucechen520/kuji-go/internal/repository/postgre/client"
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 	"github.com/brucechen520/kuji-go/internal/route"
 	client2 "github.com/brucechen520/kuji-go/internal/service/client"
-	"github.com/gin-gonic/gin"
+	"github.com/brucechen520/kuji-go/pkg/logger"
 )
 
 // Injectors from wire.go:
 
-func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
+func InitializeApp(cfg *config.Config) (*core.Engine, func(), error) {
+	zapLogger := logger.NewRequestLogger(cfg)
 	db, cleanup, err := pkg.InitDB(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -39,7 +41,7 @@ func InitializeApp(cfg *config.Config) (*gin.Engine, func(), error) {
 	seriesService := client2.NewSeriesService(seriesRepository, kujiStore, authConfig)
 	seriesHandler := client3.NewSeriesHandler(seriesService)
 	handlerGroup := route.NewHandlerGroup(authHandler, seriesHandler)
-	engine := route.NewRouter(handlerGroup)
+	engine := route.NewHTTPServer(zapLogger, handlerGroup)
 	return engine, func() {
 		cleanup2()
 		cleanup()

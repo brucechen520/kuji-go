@@ -2,7 +2,9 @@ package route
 
 import (
 	clientH "github.com/brucechen520/kuji-go/internal/handler/client"
+	"github.com/brucechen520/kuji-go/internal/pkg/core"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // 也可以這樣設計
@@ -19,14 +21,23 @@ func NewHandlerGroup(auth *clientH.AuthHandler, series *clientH.SeriesHandler) *
 	}
 }
 
-func NewRouter(h *handlerGroup) *gin.Engine {
-	r := gin.Default()
-
-	v1ClientGroup := r.Group("/api/v1/client")
+// 註冊所有路由
+func RegisterRoutes(e *gin.Engine, h *handlerGroup) {
+	v1 := e.Group("/api/v1/client")
 	{
-		v1ClientGroup.POST("/login", h.Auth.Login)
-		v1ClientGroup.GET("/series/:SeriesID/prizes", h.Series.GetSeriesById)
+		v1.POST("/login", h.Auth.Login)
+		v1.GET("/series/:SeriesID/prizes", h.Series.GetSeriesById)
 	}
+}
 
-	return r
+// NewHTTPServer 直接在這裡組裝 Engine 與路由
+func NewHTTPServer(logger *zap.Logger, h *handlerGroup) *core.Engine {
+	// 1. 初始化引擎 (選項模式)
+	// 這裡可以根據需要傳入 core.WithCors() 等選項
+	engine := core.NewEngine(logger)
+
+	// 2. 註冊路由 (直接操作 engine.Engine)
+	RegisterRoutes(engine.Engine, h)
+
+	return engine
 }

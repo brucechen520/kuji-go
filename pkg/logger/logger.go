@@ -3,6 +3,7 @@ package logger
 import (
 	"os"
 
+	"github.com/brucechen520/kuji-go/internal/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -41,6 +42,10 @@ func NewLogger(opts ...Option) *zap.Logger {
 }
 
 // Option 建構函式
+func WithLevel(level zapcore.Level) Option {
+	return func(c *option) { c.level = level }
+}
+
 func WithRedisLog(enabled bool) Option {
 	return func(c *option) { c.redisEnabled = enabled }
 }
@@ -51,4 +56,15 @@ func WithSkipPaths(paths []string) Option {
 			c.skipPaths[p] = struct{}{}
 		}
 	}
+}
+
+// NewRequestLogger 專門給 Gin Middleware 使用
+func NewRequestLogger(cfg *config.Config) *zap.Logger {
+	// 這裡可以針對 Gin 請求日誌設定特定的 Level 或輸出
+	return NewLogger(WithLevel(zap.InfoLevel))
+}
+
+// NewWorkerLogger 預留給未來使用
+func NewWorkerLogger(cfg *config.Config) *zap.Logger {
+	return NewLogger(WithLevel(zap.DebugLevel))
 }
