@@ -16,17 +16,20 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type SeriesService struct {
+// compile-time check: *seriesService 必須實作 SeriesService interface
+var _ SeriesService = (*seriesService)(nil)
+
+type seriesService struct {
 	seriesRepo client.SeriesRepository
 	kujiStore  redis.KujiStore
 	sf         singleflight.Group
 }
 
-func NewSeriesService(series client.SeriesRepository, kuji redis.KujiStore, cfg *config.AuthConfig) *SeriesService {
-	return &SeriesService{seriesRepo: series, kujiStore: kuji}
+func NewSeriesService(series client.SeriesRepository, kuji redis.KujiStore, cfg *config.AuthConfig) SeriesService {
+	return &seriesService{seriesRepo: series, kujiStore: kuji}
 }
 
-func (s *SeriesService) GetSeriesById(ctx core.Context, id uint) (*dto.SeriesDetailDTO, error) {
+func (s *seriesService) GetSeriesById(ctx core.Context, id uint) (*dto.SeriesDetailDTO, error) {
 	// 1. 先撈靜態 Meta (系列/箱子/獎項名稱)
 	// 這裡我們用 singleflight 防止 Cache 擊穿
 	series, err, _ := s.sf.Do("series_meta:"+strconv.Itoa(int(id)), func() (interface{}, error) {

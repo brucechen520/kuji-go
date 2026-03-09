@@ -10,16 +10,19 @@ import (
 	"github.com/brucechen520/kuji-go/internal/repository/redis"
 )
 
-type AuthService struct {
+// compile-time check
+var _ AuthService = (*authService)(nil)
+
+type authService struct {
 	userRepo   client.UserRepository
 	tokenStore redis.TokenStore
 }
 
-func NewAuthService(ur client.UserRepository, ts redis.TokenStore, cfg *config.AuthConfig) *AuthService {
-	return &AuthService{userRepo: ur, tokenStore: ts}
+func NewAuthService(ur client.UserRepository, ts redis.TokenStore, cfg *config.AuthConfig) AuthService {
+	return &authService{userRepo: ur, tokenStore: ts}
 }
 
-func (s *AuthService) Login(ctx core.Context, email string) (string, error) {
+func (s *authService) Login(ctx core.Context, email string) (string, error) {
 	// 1. 商業邏輯：先找使用者
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {

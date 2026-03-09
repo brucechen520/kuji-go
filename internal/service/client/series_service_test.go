@@ -25,7 +25,7 @@ func TestGetSeriesById_CacheHit(t *testing.T) {
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
 	c, _ := gin.CreateTestContext(nil)
-	ctx := core.NewContext(c)
+	ctx := core.NewTestContext(c)
 	seriesID := uint(1)
 	boxID := uint(10)
 
@@ -88,7 +88,7 @@ func TestGetSeriesById_CacheMiss_DBHit(t *testing.T) {
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
 	c, _ := gin.CreateTestContext(nil)
-	ctx := core.NewContext(c)
+	ctx := core.NewTestContext(c)
 	seriesID := uint(2)
 	boxID := uint(20)
 
@@ -158,7 +158,7 @@ func TestGetSeriesById_DBNotFound(t *testing.T) {
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
 	c, _ := gin.CreateTestContext(nil)
-	ctx := core.NewContext(c)
+	ctx := core.NewTestContext(c)
 	seriesID := uint(3)
 
 	// Expectations
@@ -187,7 +187,7 @@ func TestGetSeriesById_InventoryDBNotFound(t *testing.T) {
 	service := NewSeriesService(mockRepo, mockRedis, &config.AuthConfig{})
 
 	c, _ := gin.CreateTestContext(nil)
-	ctx := core.NewContext(c)
+	ctx := core.NewTestContext(c)
 	seriesID := uint(4)
 	boxID := uint(40)
 

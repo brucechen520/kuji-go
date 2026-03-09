@@ -9,10 +9,10 @@ import (
 )
 
 type SeriesHandler struct {
-	seriesService *clientS.SeriesService
+	seriesService clientS.SeriesService
 }
 
-func NewSeriesHandler(as *clientS.SeriesService) *SeriesHandler {
+func NewSeriesHandler(as clientS.SeriesService) *SeriesHandler {
 	return &SeriesHandler{seriesService: as}
 }
 
@@ -26,9 +26,8 @@ func (s *SeriesHandler) GetSeriesById(c *gin.Context) {
 		return
 	}
 
-	// 2. 呼叫 Service
-	ctx := core.NewContext(c)
-	defer core.ReleaseContext(ctx)
+	// 2. 取出由 Middleware 建立好的 core.Context (帶有 trace_id 的 Logger)
+	ctx := core.MustGetContext(c)
 
 	result, err := s.seriesService.GetSeriesById(ctx, req.SeriesID)
 	if err != nil {

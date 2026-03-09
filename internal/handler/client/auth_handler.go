@@ -10,10 +10,10 @@ import (
 )
 
 type AuthHandler struct {
-	authService *clientS.AuthService
+	authService clientS.AuthService
 }
 
-func NewAuthHandler(as *clientS.AuthService) *AuthHandler {
+func NewAuthHandler(as clientS.AuthService) *AuthHandler {
 	return &AuthHandler{authService: as}
 }
 
@@ -27,9 +27,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 2. 呼叫 Service
-	ctx := core.NewContext(c)
-	defer core.ReleaseContext(ctx)
+	// 2. 取出由 Middleware 建立好的 core.Context (帶有 trace_id 的 Logger)
+	ctx := core.MustGetContext(c)
 
 	token, err := h.authService.Login(ctx, req.Email)
 	if err != nil {

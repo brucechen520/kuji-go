@@ -35,32 +35,41 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ts := time.Now()
 
-		customCtx := NewContext(c)
-		defer ReleaseContext(customCtx)
+		// 從 Pool 取出一個可復用的 *customContext struct，避免每次 request 都重新分配記憶體。
+		// 取出後必須立刻設定 ctx，並在 defer 中清空再歸還，防止持有過期的 request 資源造成 memory leak。
+		cc := contextPool.Get().(*customContext)
+		cc.ctx = c
+		defer func() {
+			// 請求結束、歸還前先清空所有 reference，確保 *gin.Context 及其資源可被 GC 正常回收
+			cc.ctx = nil
+			contextPool.Put(cc) // 歸還 Pool 給下一個 request 使用
+		}()
 
 		// 初始化 context, 包括讀取 raw data
-		customCtx.(*customContext).init()
+		cc.init()
 
 		if !withoutTracePaths[c.Request.URL.Path] {
 			if traceId := c.GetHeader(trace.Header); traceId != "" {
-				customCtx.setTrace(trace.New(traceId))
+				cc.setTrace(trace.New(traceId))
 			} else {
-				customCtx.setTrace(trace.New(""))
+				cc.setTrace(trace.New(""))
 			}
 
 			// 重要：將建立好的 Trace 物件註冊進原始的 Context 樹中
 			// 這樣底層呼叫 (如 GORM 或 Redis) 收到的標準 context.Context 才能順利解析 Trace 日誌
-			reqCtx := trace.ContextWithTrace(c.Request.Context(), customCtx.Trace())
+			reqCtx := trace.ContextWithTrace(c.Request.Context(), cc.Trace())
 			c.Request = c.Request.WithContext(reqCtx)
 		}
 
-		// 2. 建立 Trace 與 Logger
-		reqLogger := l.With(zap.String("trace_id", customCtx.Trace().ID()))
+		// 建立帶有 trace_id 的 Logger 並注入
+		reqLogger := l.With(zap.String("trace_id", cc.Trace().ID()))
+		cc.setLogger(reqLogger)
 
-		// 3. 注入
-		customCtx.setLogger(reqLogger)
+		// 將初始化完成的 core.Context 存入 gin.Context
+		// Handler 層可透過 core.MustGetContext(c) 取出，確保 trace_id 正確傳遞
+		c.Set(_coreCtxKey, cc)
 
-		c.Set(trace.Header, customCtx.Trace().ID())
+		c.Set(trace.Header, cc.Trace().ID())
 		defer func() {
 			decodedURL, _ := url.QueryUnescape(c.Request.URL.RequestURI())
 
@@ -74,8 +83,8 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 
 			// region 记录日志
 			var t *trace.Trace
-			if x := customCtx.Trace(); x != nil {
-				// customCtx.Trace() 是回傳 trace.T 這個 interface，所以要轉型
+			if x := cc.Trace(); x != nil {
+				// cc.Trace() 是回傳 trace.T 這個 interface，所以要轉型
 				t = x.(*trace.Trace)
 			} else {
 				return
@@ -87,7 +96,7 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 				Method:     c.Request.Method,
 				DecodedURL: decodedURL,
 				Header:     traceHeader,
-				Body:       string(customCtx.RawData()),
+				Body:       string(cc.RawData()),
 			})
 
 			// var responseBody interface{}
@@ -113,7 +122,7 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 
 			t.Success = !c.IsAborted() && (c.Writer.Status() == http.StatusOK)
 			t.CostSeconds = time.Since(ts).Seconds()
-			customCtx.GetLogger().Info("request finished",
+			cc.GetLogger().Info("request finished",
 				zap.Any("method", c.Request.Method),
 				zap.Any("path", decodedURL),
 				zap.Any("http_code", c.Writer.Status()),
@@ -127,6 +136,7 @@ func LoggerMiddleware(l *zap.Logger) gin.HandlerFunc {
 			// endregion
 		}()
 
+		// 將 *customContext 以 Context interface 傳遞給後續的 Handler
 		c.Next()
 	}
 }
