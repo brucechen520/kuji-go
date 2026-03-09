@@ -18,14 +18,12 @@ const (
 	_coreCtxKey  = "_core_ctx_" // middleware 建立好的 core.Context 存放位置
 )
 
-type Trace trace.T
-
 // Context 介面，僅暴露「讀取行為」給外部 (Service / Handler / Repository) 使用。
 // setLogger / setTrace 等設定行為只由 core package 內部透過 *customContext 直接呼叫，不屬於介面的職責。
 // 這樣做的好處是外部 package 可以自由實作或 Mock 此介面，不受未導出方法的限制。
 type Context interface {
 	GetLogger() *zap.Logger
-	Trace() Trace
+	Trace() trace.T
 	RawData() []byte
 	StdContext() context.Context
 }
@@ -75,13 +73,13 @@ func (c *customContext) GetLogger() *zap.Logger {
 	return zap.NewNop()
 }
 
-func (c *customContext) setTrace(t Trace) {
+func (c *customContext) setTrace(t trace.T) {
 	c.ctx.Set(_TraceName, t)
 }
 
-func (c *customContext) Trace() Trace {
+func (c *customContext) Trace() trace.T {
 	if t, ok := c.ctx.Get(_TraceName); ok {
-		return t.(Trace)
+		return t.(trace.T)
 	}
 	return nil
 }

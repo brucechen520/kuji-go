@@ -10,15 +10,14 @@ import (
 
 // 也可以這樣設計
 type handlerGroup struct {
-	Auth   *clientH.AuthHandler
-	Series *clientH.SeriesHandler
+	auth   *clientH.AuthHandler
+	series *clientH.SeriesHandler
 }
 
-// 定義這個組裝函數
 func NewHandlerGroup(auth *clientH.AuthHandler, series *clientH.SeriesHandler) *handlerGroup {
 	return &handlerGroup{
-		Auth:   auth,
-		Series: series,
+		auth:   auth,
+		series: series,
 	}
 }
 
@@ -26,8 +25,8 @@ func NewHandlerGroup(auth *clientH.AuthHandler, series *clientH.SeriesHandler) *
 func RegisterRoutes(e *gin.Engine, h *handlerGroup) {
 	v1 := e.Group("/api/v1/client")
 	{
-		v1.POST("/login", h.Auth.Login)
-		v1.GET("/series/:SeriesID/prizes", h.Series.GetSeriesById)
+		v1.POST("/login", h.auth.Login)
+		v1.GET("/series/:SeriesID/prizes", h.series.GetSeriesById)
 	}
 }
 
